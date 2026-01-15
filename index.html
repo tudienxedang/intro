@@ -1695,7 +1695,8 @@
             // Redirect to main app
             setTimeout(() => {
                 // CHUYỂN ĐẾN TRANG CỦA BẠN
-                window.location.href = "https://tudienxedang.github.io/tudien/?verified=true";
+               // nếu muốn chạy lại khi nhấn nút back window.location.href = "https://tudienxedang.github.io/tudien/?verified=true";
+				window.location.replace("https://tudienxedang.github.io/tudien/?verified=true");
             }, 1000);
         }, 1500);
     }, 300);
@@ -1717,12 +1718,12 @@
             `;
             document.head.appendChild(style);
         });
-
-        window.addEventListener('pageshow', function(event) {
-        if (event.persisted) {
-            window.location.reload();
-        }
-    });
+		// Tắt tính năng chạy lại
+       // window.addEventListener('pageshow', function(event) {
+        //if (event.persisted) {
+           // window.location.reload();
+       // }
+   // });
     </script>
 </body>
 </html>
