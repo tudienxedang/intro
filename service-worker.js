@@ -1,90 +1,139 @@
-// service-worker.js - Phiên bản đã sửa lỗi
-const CACHE_NAME = 'xodang-app-v4.0.0-fixed'; // Đổi tên để reset cache cũ
+// service-worker.js - FIXED VERSION
+const CACHE_NAME = 'xodang-app-v3.2.0-final';
 
-// Danh sách file CẦN PHẢI CÓ để app chạy offline
-// LƯU Ý: Nếu 1 trong các link này chết, app sẽ không cache được.
+// Chỉ cache các tài nguyên nội bộ
 const urlsToCache = [
-  './', 
+  './',
   './index.html',
   './manifest.json',
-  // Các thư viện bên ngoài (External CDN)
+  // Thêm các file CSS/JS local của bạn ở đây
+  // './css/style.css',
+  // './js/app.js'
+];
+
+// Tài nguyên CDN - không cache trong install event
+const externalResources = [
   'https://cdnjs.cloudflare.com/ajax/libs/font-awesome/6.0.0-beta3/css/all.min.css',
   'https://cdn.tailwindcss.com',
   'https://fonts.googleapis.com/css2?family=Plus+Jakarta+Sans:wght@400;500;600;700&display=swap',
   'https://cdn.jsdelivr.net/npm/lamejs@1.2.1/lame.min.js'
 ];
 
-// 1. Cài đặt (Install)
-self.addEventListener('install', event => {
-  console.log('[Service Worker] Đang cài đặt phiên bản mới...');
-  // Bắt buộc Service Worker mới kích hoạt ngay lập tức
+// 1. INSTALL - chỉ cache local resources
+self.addEventListener('install', (event) => {
   self.skipWaiting();
-
   event.waitUntil(
-    caches.open(CACHE_NAME)
-      .then(cache => {
-        console.log('[Service Worker] Đang tải tài nguyên vào cache...');
-        return cache.addAll(urlsToCache);
-      })
-      .catch(err => {
-        console.error('[Service Worker] Lỗi khi cache file:', err);
-      })
+    caches.open(CACHE_NAME).then((cache) => {
+      // Chỉ cache các file local, xử lý lỗi từng file
+      return Promise.allSettled(
+        urlsToCache.map(url => {
+          return cache.add(url).catch(e => {
+            console.warn(`Failed to cache ${url}:`, e);
+            return Promise.resolve(); // Không làm hỏng toàn bộ quá trình
+          });
+        })
+      );
+    }).then(() => {
+      console.log('Service Worker installed successfully');
+    })
   );
 });
 
-// 2. Kích hoạt (Activate) - Dọn dẹp cache cũ
-self.addEventListener('activate', event => {
-  console.log('[Service Worker] Đang kích hoạt...');
+// 2. ACTIVATE
+self.addEventListener('activate', (event) => {
   event.waitUntil(
-    caches.keys().then(cacheNames => {
+    caches.keys().then((cacheNames) => {
       return Promise.all(
-        cacheNames.map(cacheName => {
-          // Xóa tất cả cache cũ không phải là phiên bản hiện tại
+        cacheNames.map((cacheName) => {
           if (cacheName !== CACHE_NAME) {
-            console.log('[Service Worker] Đang xóa cache cũ:', cacheName);
+            console.log('Deleting old cache:', cacheName);
             return caches.delete(cacheName);
           }
         })
       );
     }).then(() => {
+      console.log('Service Worker activated');
       return self.clients.claim();
     })
   );
 });
 
-// 3. Xử lý yêu cầu mạng (Fetch)
-self.addEventListener('fetch', event => {
-  // Chỉ xử lý method GET
+// 3. FETCH - chiến lược cache-first cho local, network-first cho external
+self.addEventListener('fetch', (event) => {
+  const url = new URL(event.request.url);
+  
+  // Bỏ qua non-GET requests và chrome-extension
   if (event.request.method !== 'GET') return;
-
+  if (event.request.url.startsWith('chrome-extension')) return;
+  
+  // Xử lý tài nguyên từ CDN khác
+  const isExternalCDN = externalResources.some(cdnUrl => 
+    event.request.url.startsWith(cdnUrl.split('/').slice(0, 3).join('/'))
+  );
+  
+  if (isExternalCDN) {
+    // Network-first cho CDN resources
+    event.respondWith(
+      fetch(event.request)
+        .then(response => {
+          // Cache response nếu thành công
+          if (response.ok) {
+            const responseClone = response.clone();
+            caches.open(CACHE_NAME).then(cache => {
+              cache.put(event.request, responseClone);
+            });
+          }
+          return response;
+        })
+        .catch(() => {
+          // Fallback to cache nếu offline
+          return caches.match(event.request);
+        })
+    );
+    return;
+  }
+  
+  // Cache-first cho local resources
   event.respondWith(
     caches.match(event.request)
-      .then(response => {
-        // A. Có trong cache -> Trả về ngay (Nhanh nhất)
-        if (response) {
-          return response;
+      .then(cachedResponse => {
+        if (cachedResponse) {
+          return cachedResponse;
         }
-
-        // B. Không có trong cache -> Tải từ mạng
-        return fetch(event.request).then(networkResponse => {
-          // Kiểm tra xem phản hồi có hợp lệ không
-          if (!networkResponse || networkResponse.status !== 200 || networkResponse.type !== 'basic') {
+        
+        return fetch(event.request)
+          .then(networkResponse => {
+            // Kiểm tra response hợp lệ
+            if (!networkResponse || networkResponse.status !== 200) {
+              return networkResponse;
+            }
+            
+            // Clone response để cache
+            const responseClone = networkResponse.clone();
+            caches.open(CACHE_NAME)
+              .then(cache => {
+                cache.put(event.request, responseClone);
+              })
+              .catch(e => console.warn('Cache put failed:', e));
+            
             return networkResponse;
-          }
-
-          // Clone response để lưu vào cache cho lần sau
-          const responseToCache = networkResponse.clone();
-          caches.open(CACHE_NAME).then(cache => {
-            cache.put(event.request, responseToCache);
+          })
+          .catch(() => {
+            // Fallback cho HTML requests
+            if (event.request.headers.get('accept')?.includes('text/html')) {
+              return caches.match('./index.html');
+            }
+            
+            return new Response('Offline', {
+              status: 503,
+              headers: { 'Content-Type': 'text/plain' }
+            });
           });
-
-          return networkResponse;
-        });
-      })
-      .catch(() => {
-        // C. Mất mạng và không có trong cache -> Hiển thị trang offline (nếu có)
-        // Hiện tại ta sẽ để mặc định trình duyệt báo lỗi
-        console.log('[Service Worker] Không có mạng và không có cache cho: ', event.request.url);
       })
   );
+});
+
+// 4. BACKGROUND SYNC (tùy chọn)
+self.addEventListener('sync', (event) => {
+  console.log('Background sync:', event.tag);
 });
