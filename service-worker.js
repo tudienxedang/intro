@@ -1,172 +1,90 @@
-// service-worker.js
-const CACHE_NAME = 'xodang-intro-v2.1.0';
+// service-worker.js - Phiên bản đã sửa lỗi
+const CACHE_NAME = 'xodang-app-v4.0.0-fixed'; // Đổi tên để reset cache cũ
+
+// Danh sách file CẦN PHẢI CÓ để app chạy offline
+// LƯU Ý: Nếu 1 trong các link này chết, app sẽ không cache được.
 const urlsToCache = [
-  './',
+  './', 
   './index.html',
   './manifest.json',
+  // Các thư viện bên ngoài (External CDN)
   'https://cdnjs.cloudflare.com/ajax/libs/font-awesome/6.0.0-beta3/css/all.min.css',
   'https://cdn.tailwindcss.com',
-  'https://fonts.googleapis.com/css2?family=Plus+Jakarta+Sans:wght@400;500;600;700&display=swap'
+  'https://fonts.googleapis.com/css2?family=Plus+Jakarta+Sans:wght@400;500;600;700&display=swap',
+  'https://cdn.jsdelivr.net/npm/lamejs@1.2.1/lame.min.js'
 ];
 
-// Cài đặt Service Worker
+// 1. Cài đặt (Install)
 self.addEventListener('install', event => {
-  console.log('[Service Worker] Installing...');
-  
+  console.log('[Service Worker] Đang cài đặt phiên bản mới...');
+  // Bắt buộc Service Worker mới kích hoạt ngay lập tức
+  self.skipWaiting();
+
   event.waitUntil(
     caches.open(CACHE_NAME)
       .then(cache => {
-        console.log('[Service Worker] Caching app shell');
+        console.log('[Service Worker] Đang tải tài nguyên vào cache...');
         return cache.addAll(urlsToCache);
       })
-      .then(() => {
-        console.log('[Service Worker] Skip waiting');
-        return self.skipWaiting();
+      .catch(err => {
+        console.error('[Service Worker] Lỗi khi cache file:', err);
       })
   );
 });
 
-// Kích hoạt Service Worker
+// 2. Kích hoạt (Activate) - Dọn dẹp cache cũ
 self.addEventListener('activate', event => {
-  console.log('[Service Worker] Activating...');
-  
-  // Xóa cache cũ
+  console.log('[Service Worker] Đang kích hoạt...');
   event.waitUntil(
     caches.keys().then(cacheNames => {
       return Promise.all(
         cacheNames.map(cacheName => {
+          // Xóa tất cả cache cũ không phải là phiên bản hiện tại
           if (cacheName !== CACHE_NAME) {
-            console.log('[Service Worker] Deleting old cache:', cacheName);
+            console.log('[Service Worker] Đang xóa cache cũ:', cacheName);
             return caches.delete(cacheName);
           }
         })
       );
     }).then(() => {
-      console.log('[Service Worker] Claiming clients');
       return self.clients.claim();
     })
   );
 });
 
-// Xử lý fetch requests
+// 3. Xử lý yêu cầu mạng (Fetch)
 self.addEventListener('fetch', event => {
-  // Bỏ qua các request không phải GET
+  // Chỉ xử lý method GET
   if (event.request.method !== 'GET') return;
-  
-  // Bỏ qua các request từ Chrome extensions
-  if (event.request.url.startsWith('chrome-extension://')) return;
-  
-  // Xử lý các URL khác nhau
+
   event.respondWith(
     caches.match(event.request)
       .then(response => {
-        // Cache hit - return response
+        // A. Có trong cache -> Trả về ngay (Nhanh nhất)
         if (response) {
           return response;
         }
 
-        // Không tìm thấy trong cache - fetch từ network
-        return fetch(event.request)
-          .then(response => {
-            // Kiểm tra response hợp lệ
-            if (!response || response.status !== 200 || response.type !== 'basic') {
-              return response;
-            }
+        // B. Không có trong cache -> Tải từ mạng
+        return fetch(event.request).then(networkResponse => {
+          // Kiểm tra xem phản hồi có hợp lệ không
+          if (!networkResponse || networkResponse.status !== 200 || networkResponse.type !== 'basic') {
+            return networkResponse;
+          }
 
-            // Clone response để cache và return
-            const responseToCache = response.clone();
-            
-            caches.open(CACHE_NAME)
-              .then(cache => {
-                cache.put(event.request, responseToCache);
-              });
-
-            return response;
-          })
-          .catch(error => {
-            // Fallback cho offline
-            console.log('[Service Worker] Fetch failed; returning offline page', error);
-            
-            // Nếu là HTML request, trả về trang offline
-            if (event.request.headers.get('accept').includes('text/html')) {
-              return caches.match('./offline.html');
-            }
-            
-            // Nếu là CSS, JS, font - trả về cached version nếu có
-            return caches.match(event.request);
+          // Clone response để lưu vào cache cho lần sau
+          const responseToCache = networkResponse.clone();
+          caches.open(CACHE_NAME).then(cache => {
+            cache.put(event.request, responseToCache);
           });
+
+          return networkResponse;
+        });
+      })
+      .catch(() => {
+        // C. Mất mạng và không có trong cache -> Hiển thị trang offline (nếu có)
+        // Hiện tại ta sẽ để mặc định trình duyệt báo lỗi
+        console.log('[Service Worker] Không có mạng và không có cache cho: ', event.request.url);
       })
   );
-});
-
-// Xử lý message từ client
-self.addEventListener('message', event => {
-  if (event.data && event.data.type === 'SKIP_WAITING') {
-    self.skipWaiting();
-  }
-});
-
-// Xử lý background sync
-self.addEventListener('sync', event => {
-  if (event.tag === 'sync-data') {
-    console.log('[Service Worker] Background sync triggered');
-    event.waitUntil(syncData());
-  }
-});
-
-async function syncData() {
-  // Hàm đồng bộ dữ liệu khi có kết nối lại
-  try {
-    // Gửi dữ liệu offline lên server
-    console.log('[Service Worker] Syncing offline data...');
-    return Promise.resolve();
-  } catch (error) {
-    console.error('[Service Worker] Sync failed:', error);
-  }
-}
-
-// Xử lý push notifications
-self.addEventListener('push', event => {
-  console.log('[Service Worker] Push received');
-  
-  const data = event.data ? event.data.text() : 'Có thông báo mới từ ứng dụng học tiếng Xơ Đăng';
-  
-  const options = {
-    body: data,
-    icon: '/tudien/icon-192x192.png',
-    badge: '/tudien/icon-96x96.png',
-    vibrate: [100, 50, 100],
-    data: {
-      dateOfArrival: Date.now(),
-      primaryKey: 1
-    },
-    actions: [
-      {
-        action: 'explore',
-        title: 'Mở ứng dụng',
-        icon: '/tudien/icon-96x96.png'
-      },
-      {
-        action: 'close',
-        title: 'Đóng',
-        icon: '/tudien/icon-96x96.png'
-      }
-    ]
-  };
-  
-  event.waitUntil(
-    self.registration.showNotification('Học tiếng Xơ Đăng', options)
-  );
-});
-
-self.addEventListener('notificationclick', event => {
-  console.log('[Service Worker] Notification click received');
-  
-  event.notification.close();
-  
-  if (event.action === 'explore') {
-    event.waitUntil(
-      clients.openWindow('/tudien/')
-    );
-  }
 });
