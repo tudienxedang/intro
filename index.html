@@ -7,6 +7,21 @@
     <meta name="description" content="Hệ thống học tiếng Xơ Đăng trực tuyến dành riêng cho học sinh THCS. Từ điển tương tác, bài học sinh động, trắc nghiệm thông minh, trò chơi giáo dục. Ứng dụng PWA học offline, hỗ trợ phát âm chuẩn, hoàn toàn miễn phí.">
     <meta name="keywords" content="học tiếng xơ đăng, tiếng xê đăng, học tiếng dân tộc thiểu số, từ điển xơ đăng, ứng dụng học tiếng xơ đăng, học tiếng xơ đăng online, bài tập tiếng xơ đăng, pwa học tiếng dân tộc, tiếng xơ đăng cho học sinh, giáo dục dân tộc thiểu số, bảo tồn ngôn ngữ dân tộc">
 
+		<!-- Đảm bảo có manifest -->
+		<link rel="manifest" href="./manifest.json">
+		
+		<!-- Theme color -->
+		<meta name="theme-color" content="#27ae60">
+		
+		<!-- Các thẻ hỗ trợ PWA -->
+		<meta name="apple-mobile-web-app-capable" content="yes">
+		<meta name="apple-mobile-web-app-status-bar-style" content="black-translucent">
+		<meta name="mobile-web-app-capable" content="yes">
+		
+		<!-- Preload critical resources -->
+		<link rel="preload" href="https://cdn.tailwindcss.com" as="script">
+		<link rel="preload" href="https://fonts.googleapis.com/css2?family=Plus+Jakarta+Sans:wght@400;500;600;700&display=swap" as="style">
+			
 	<!-- Additional SEO Meta -->
 	<meta name="thumbnail" content="https://tudienxedang.github.io/tudien/Thumnail.jpg">
 	<meta property="og:updated_time" content="2025-12-26T00:00:00+07:00">
@@ -1226,6 +1241,81 @@
                 animation: none;
             }
         }
+
+
+/* ===== OFFLINE NOTIFICATION STYLES ===== */
+#offline-notice {
+    position: fixed;
+    top: 10px;
+    right: 10px;
+    background: #f59e0b;
+    color: white;
+    padding: 10px 15px;
+    border-radius: 8px;
+    font-size: 14px;
+    font-weight: 600;
+    z-index: 10000;
+    box-shadow: 0 4px 12px rgba(0,0,0,0.15);
+    display: flex;
+    align-items: center;
+    gap: 8px;
+    animation: slideIn 0.3s ease;
+}
+
+#offline-notice i {
+    font-size: 16px;
+}
+
+@keyframes slideIn {
+    from { transform: translateX(100%); opacity: 0; }
+    to { transform: translateX(0); opacity: 1; }
+}
+
+@keyframes slideOut {
+    from { transform: translateX(0); opacity: 1; }
+    to { transform: translateX(100%); opacity: 0; }
+}
+
+/* Thêm style cho offline mode */
+body.offline-mode {
+    position: relative;
+}
+
+body.offline-mode::after {
+    content: '';
+    position: fixed;
+    top: 0;
+    left: 0;
+    width: 5px;
+    height: 100%;
+    background: #f59e0b;
+    z-index: 9999;
+}
+
+/* ===== LOADING INDICATOR ===== */
+.loading-indicator {
+    position: fixed;
+    top: 0;
+    left: 0;
+    width: 100%;
+    height: 3px;
+    background: linear-gradient(90deg, #10b981, #059669);
+    z-index: 10001;
+    transform: translateX(-100%);
+    transition: transform 0.3s ease;
+}
+
+.loading-indicator.active {
+    animation: loading 2s ease-in-out infinite;
+}
+
+@keyframes loading {
+    0% { transform: translateX(-100%); }
+    50% { transform: translateX(0); }
+    100% { transform: translateX(100%); }
+}
+
+		
     </style>
 </head>
 <body>
@@ -1725,6 +1815,137 @@
        // }
    // });
     </script>
+
+<script>
+// ===== OFFLINE PWA SETUP - ĐƠN GIẢN =====
+(function() {
+    console.log('Đang thiết lập offline mode...');
+    
+    // Kiểm tra trình duyệt hỗ trợ Service Worker
+    if ('serviceWorker' in navigator) {
+        // Đăng ký Service Worker
+        window.addEventListener('load', function() {
+            navigator.serviceWorker.register('service-worker.js')
+                .then(function(registration) {
+                    console.log('✅ Service Worker đã đăng ký:', registration.scope);
+                    
+                    // Kiểm tra trạng thái online/offline
+                    updateOnlineStatus();
+                    
+                    // Thêm sự kiện online/offline
+                    window.addEventListener('online', updateOnlineStatus);
+                    window.addEventListener('offline', updateOnlineStatus);
+                    
+                    // Kiểm tra bộ nhớ cache
+                    setTimeout(checkCacheStatus, 2000);
+                })
+                .catch(function(error) {
+                    console.log('❌ Service Worker thất bại:', error);
+                });
+        });
+    } else {
+        console.log('Trình duyệt không hỗ trợ Service Worker');
+    }
+    
+    // Hiển thị trạng thái online/offline
+    function updateOnlineStatus() {
+        const isOnline = navigator.onLine;
+        console.log(isOnline ? '📡 Đang online' : '📴 Đang offline');
+        
+        // Hiển thị thông báo nhỏ nếu offline
+        if (!isOnline) {
+            showOfflineNotification();
+        } else {
+            hideOfflineNotification();
+        }
+    }
+    
+    // Thông báo khi offline
+    function showOfflineNotification() {
+        // Chỉ tạo 1 lần
+        if (document.getElementById('offline-notice')) return;
+        
+        const notice = document.createElement('div');
+        notice.id = 'offline-notice';
+        notice.innerHTML = `
+            <div style="
+                position: fixed;
+                top: 10px;
+                right: 10px;
+                background: #f59e0b;
+                color: white;
+                padding: 10px 15px;
+                border-radius: 8px;
+                font-size: 14px;
+                font-weight: 600;
+                z-index: 10000;
+                box-shadow: 0 4px 12px rgba(0,0,0,0.15);
+                display: flex;
+                align-items: center;
+                gap: 8px;
+                animation: slideIn 0.3s ease;
+            ">
+                <i class="fas fa-wifi-slash"></i>
+                <span>Đang hoạt động offline</span>
+            </div>
+        `;
+        
+        // Thêm CSS animation
+        const style = document.createElement('style');
+        style.textContent = `
+            @keyframes slideIn {
+                from { transform: translateX(100%); opacity: 0; }
+                to { transform: translateX(0); opacity: 1; }
+            }
+        `;
+        document.head.appendChild(style);
+        
+        document.body.appendChild(notice);
+        
+        // Tự động ẩn sau 5 giây
+        setTimeout(() => {
+            hideOfflineNotification();
+        }, 5000);
+    }
+    
+    function hideOfflineNotification() {
+        const notice = document.getElementById('offline-notice');
+        if (notice) {
+            notice.style.animation = 'slideOut 0.3s ease';
+            setTimeout(() => notice.remove(), 300);
+        }
+    }
+    
+    // Kiểm tra cache status
+    async function checkCacheStatus() {
+        if ('caches' in window) {
+            try {
+                const cache = await caches.open('xodang-intro-offline-v1');
+                const keys = await cache.keys();
+                console.log(`📦 Cache có ${keys.length} file`);
+                
+                // Nếu có ít nhất 3 file trong cache -> offline ready
+                if (keys.length >= 3) {
+                    console.log('✅ Ứng dụng đã sẵn sàng hoạt động offline');
+                }
+            } catch (error) {
+                console.log('Không thể kiểm tra cache:', error);
+            }
+        }
+    }
+    
+    // Hàm kiểm tra trạng thái offline
+    window.checkOfflineStatus = function() {
+        return !navigator.onLine;
+    };
+    
+    // Kiểm tra ngay khi trang tải
+    updateOnlineStatus();
+    
+    console.log('Offline mode đã được thiết lập!');
+})();
+</script>
+	
 </body>
 </html>
 
