@@ -1,5 +1,5 @@
 // service-worker.js - SIMPLE BUT WORKING
-const CACHE_NAME = 'xodang-v1.0';
+const CACHE_NAME = 'xodang-v2.0';
 const OFFLINE_URL = 'offline.html';
 
 // Bước 1: INSTALL - Cache các file quan trọng
@@ -112,4 +112,5 @@ self.addEventListener('fetch', event => {
     );
   }
 });
+
 
