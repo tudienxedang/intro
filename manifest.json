@@ -1,21 +1,92 @@
-{
-  "name": "Học tiếng Xơ Đăng - Intro",
-  "short_name": "Xơ Đăng Intro",
-  "description": "Giới thiệu ứng dụng học tiếng Xơ Đăng - Hoạt động offline",
-  "start_url": "/tudien/intro.html",
-  "display": "standalone",
-  "background_color": "#ffffff",
-  "theme_color": "#27ae60",
-  "icons": [
-    {
-      "src": "/tudien/icon-192x192.png",
-      "sizes": "192x192",
-      "type": "image/png"
-    },
-    {
-      "src": "/tudien/icon-512x512.png",
-      "sizes": "512x512",
-      "type": "image/png"
-    }
-  ]
-}
+// service-worker.js - BẢN FIX LỖI RESPONSE
+const CACHE_NAME = 'xodang-app-v3.1.0-fix-response';
+
+// Danh sách file BẮT BUỘC phải có.
+// Nếu thiếu 1 file, toàn bộ quá trình cache sẽ hủy bỏ.
+const urlsToCache = [
+  './',
+  './index.html',
+  './manifest.json',
+  // Nếu bạn chưa có file icon này trong thư mục, hãy xóa dòng dưới đi
+  './icon-192x192.png', 
+  'https://cdnjs.cloudflare.com/ajax/libs/font-awesome/6.0.0-beta3/css/all.min.css',
+  'https://cdn.tailwindcss.com',
+  'https://fonts.googleapis.com/css2?family=Plus+Jakarta+Sans:wght@400;500;600;700&display=swap',
+  'https://cdn.jsdelivr.net/npm/lamejs@1.2.1/lame.min.js'
+];
+
+// 1. Install
+self.addEventListener('install', event => {
+  console.log('[Service Worker] Đang cài đặt...');
+  self.skipWaiting();
+  event.waitUntil(
+    caches.open(CACHE_NAME)
+      .then(cache => {
+        console.log('[Service Worker] Đang cache file...');
+        return cache.addAll(urlsToCache);
+      })
+      .catch(error => {
+        console.error('[Service Worker] Lỗi Cache:', error);
+      })
+  );
+});
+
+// 2. Activate
+self.addEventListener('activate', event => {
+  event.waitUntil(
+    caches.keys().then(cacheNames => {
+      return Promise.all(
+        cacheNames.map(cacheName => {
+          if (cacheName !== CACHE_NAME) {
+            return caches.delete(cacheName);
+          }
+        })
+      );
+    }).then(() => self.clients.claim())
+  );
+});
+
+// 3. Fetch (ĐÃ SỬA LỖI CRASH)
+self.addEventListener('fetch', event => {
+  if (event.request.method !== 'GET') return;
+
+  event.respondWith(
+    caches.match(event.request)
+      .then(response => {
+        // Có trong cache -> Trả về
+        if (response) {
+          return response;
+        }
+
+        // Không có -> Tải từ mạng
+        return fetch(event.request)
+          .then(networkResponse => {
+            // Kiểm tra response hợp lệ
+            if (!networkResponse || networkResponse.status !== 200 || networkResponse.type !== 'basic') {
+              return networkResponse;
+            }
+            
+            // Lưu vào cache
+            const responseToCache = networkResponse.clone();
+            caches.open(CACHE_NAME).then(cache => {
+              cache.put(event.request, responseToCache);
+            });
+
+            return networkResponse;
+          })
+          .catch(() => {
+            // LỖI ĐÃ ĐƯỢC XỬ LÝ TẠI ĐÂY
+            // Khi mất mạng và không có cache, thay vì crash, ta trả về một Response báo lỗi giả
+            // để trình duyệt không báo đỏ lòm.
+            console.log('[Service Worker] Offline & Không tìm thấy: ', event.request.url);
+            
+            // Trả về một text đơn giản để không bị lỗi "Failed to convert..."
+            return new Response("Bạn đang offline và chưa lưu nội dung này.", {
+                status: 503,
+                statusText: "Service Unavailable",
+                headers: new Headers({ "Content-Type": "text/plain" })
+            });
+          });
+      })
+  );
+});
