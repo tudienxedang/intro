@@ -1,43 +1,46 @@
-// service-worker.js - BẢN FIX LỖI RESPONSE
-const CACHE_NAME = 'xodang-app-v3.1.0-fix-response';
+// service-worker.js - BẢN FIX FINAL (Hỗ trợ CDN & Sửa lỗi Crash)
+const CACHE_NAME = 'xodang-app-v3.2.0-final';
 
-// Danh sách file BẮT BUỘC phải có.
-// Nếu thiếu 1 file, toàn bộ quá trình cache sẽ hủy bỏ.
+// Danh sách file BẮT BUỘC cho lần tải đầu tiên
 const urlsToCache = [
   './',
   './index.html',
   './manifest.json',
-  // Nếu bạn chưa có file icon này trong thư mục, hãy xóa dòng dưới đi
-  './icon-192x192.png', 
+  // Tạm thời bỏ icon ra khỏi danh sách bắt buộc để tránh lỗi nếu chưa upload ảnh
+  // './icon-192x192.png', 
   'https://cdnjs.cloudflare.com/ajax/libs/font-awesome/6.0.0-beta3/css/all.min.css',
   'https://cdn.tailwindcss.com',
   'https://fonts.googleapis.com/css2?family=Plus+Jakarta+Sans:wght@400;500;600;700&display=swap',
   'https://cdn.jsdelivr.net/npm/lamejs@1.2.1/lame.min.js'
 ];
 
-// 1. Install
+// 1. INSTALL
 self.addEventListener('install', event => {
   console.log('[Service Worker] Đang cài đặt...');
-  self.skipWaiting();
+  self.skipWaiting(); // Kích hoạt ngay lập tức
+  
   event.waitUntil(
     caches.open(CACHE_NAME)
       .then(cache => {
-        console.log('[Service Worker] Đang cache file...');
+        console.log('[Service Worker] Đang cache các file gốc...');
         return cache.addAll(urlsToCache);
       })
       .catch(error => {
-        console.error('[Service Worker] Lỗi Cache:', error);
+        // Log rõ lỗi file nào gây ra việc không cài được Service Worker
+        console.error('[Service Worker] Cài đặt thất bại. Kiểm tra lại danh sách urlsToCache:', error);
       })
   );
 });
 
-// 2. Activate
+// 2. ACTIVATE
 self.addEventListener('activate', event => {
+  console.log('[Service Worker] Đang kích hoạt...');
   event.waitUntil(
     caches.keys().then(cacheNames => {
       return Promise.all(
         cacheNames.map(cacheName => {
           if (cacheName !== CACHE_NAME) {
+            console.log('[Service Worker] Xóa cache cũ:', cacheName);
             return caches.delete(cacheName);
           }
         })
@@ -46,27 +49,33 @@ self.addEventListener('activate', event => {
   );
 });
 
-// 3. Fetch (ĐÃ SỬA LỖI CRASH)
+// 3. FETCH (QUAN TRỌNG NHẤT)
 self.addEventListener('fetch', event => {
+  // Chỉ xử lý method GET
   if (event.request.method !== 'GET') return;
+
+  // Bỏ qua các request chrome-extension
+  if (event.request.url.startsWith('chrome-extension')) return;
 
   event.respondWith(
     caches.match(event.request)
       .then(response => {
-        // Có trong cache -> Trả về
+        // A. Có trong cache -> Trả về ngay
         if (response) {
           return response;
         }
 
-        // Không có -> Tải từ mạng
+        // B. Không có -> Tải từ mạng
         return fetch(event.request)
           .then(networkResponse => {
             // Kiểm tra response hợp lệ
-            if (!networkResponse || networkResponse.status !== 200 || networkResponse.type !== 'basic') {
+            // LƯU Ý: Đã cho phép type 'cors' để cache được Tailwind/FontAwesome
+            if (!networkResponse || networkResponse.status !== 200 || 
+               (networkResponse.type !== 'basic' && networkResponse.type !== 'cors')) {
               return networkResponse;
             }
             
-            // Lưu vào cache
+            // Clone response để lưu cache
             const responseToCache = networkResponse.clone();
             caches.open(CACHE_NAME).then(cache => {
               cache.put(event.request, responseToCache);
@@ -74,16 +83,19 @@ self.addEventListener('fetch', event => {
 
             return networkResponse;
           })
-          .catch(() => {
-            // LỖI ĐÃ ĐƯỢC XỬ LÝ TẠI ĐÂY
-            // Khi mất mạng và không có cache, thay vì crash, ta trả về một Response báo lỗi giả
-            // để trình duyệt không báo đỏ lòm.
-            console.log('[Service Worker] Offline & Không tìm thấy: ', event.request.url);
+          .catch(err => {
+            // C. XỬ LÝ KHI MẤT MẠNG VÀ KHÔNG CÓ CACHE
+            console.log('[Service Worker] Offline & Không tìm thấy resource:', event.request.url);
             
-            // Trả về một text đơn giản để không bị lỗi "Failed to convert..."
-            return new Response("Bạn đang offline và chưa lưu nội dung này.", {
+            // Nếu là request trang HTML (điều hướng trang), trả về trang offline (nếu có) hoặc index
+            if (event.request.headers.get('accept').includes('text/html')) {
+                return caches.match('./index.html');
+            }
+
+            // Trả về Response giả để không bị lỗi "Failed to convert value"
+            return new Response("Offline content not available", {
                 status: 503,
-                statusText: "Service Unavailable",
+                statusText: "Offline",
                 headers: new Headers({ "Content-Type": "text/plain" })
             });
           });
