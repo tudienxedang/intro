@@ -1,0 +1,21 @@
+{
+  "name": "Học tiếng Xơ Đăng - Intro",
+  "short_name": "Xơ Đăng Intro",
+  "description": "Giới thiệu ứng dụng học tiếng Xơ Đăng - Hoạt động offline",
+  "start_url": "/tudien/intro.html",
+  "display": "standalone",
+  "background_color": "#ffffff",
+  "theme_color": "#27ae60",
+  "icons": [
+    {
+      "src": "/tudien/icon-192x192.png",
+      "sizes": "192x192",
+      "type": "image/png"
+    },
+    {
+      "src": "/tudien/icon-512x512.png",
+      "sizes": "512x512",
+      "type": "image/png"
+    }
+  ]
+}
