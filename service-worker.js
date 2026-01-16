@@ -1,116 +1,131 @@
-// service-worker.js - SIMPLE BUT WORKING
-const CACHE_NAME = 'xodang-v2.0';
-const OFFLINE_URL = 'offline.html';
+// Tên cache
+const CACHE_NAME = 'xedang-full-app-v2';
 
-// Bước 1: INSTALL - Cache các file quan trọng
+// Các file cần cache (bao gồm cả trang chính)
+const urlsToCache = [
+  '/', // Trang splash hiện tại
+  'https://raw.githubusercontent.com/tudienxedang/tudien/main/twitter-card.png', // Logo
+  'https://tudienxedang.github.io/tudien/?verified=true' // Trang chính
+];
+
+// Cài đặt Service Worker
 self.addEventListener('install', event => {
-  console.log('📦 Service Worker đang cài đặt...');
+  console.log('Service Worker: Đang cài đặt và cache tài nguyên...');
   
   event.waitUntil(
-    caches.open(CACHE_NAME).then(cache => {
-      console.log('✅ Cache mở thành công');
-      
-      // Chỉ cache những file CƠ BẢN, chắc chắn có
-      return cache.addAll([
-        './',
-        './index.html',
-        './manifest.json',
-        '/icon-192.png',              // Icon nhỏ
-        '/icon-512.png',              // Icon lớn
-        // Thêm CSS/JS của mày nếu có
-        // './css/style.css',
-        // './js/app.js'
-      ]).then(() => {
-        console.log('✅ Đã cache xong các file cơ bản');
-        return self.skipWaiting();
-      });
-    }).catch(error => {
-      console.error('❌ Lỗi khi cache:', error);
-    })
+    caches.open(CACHE_NAME)
+      .then(cache => {
+        console.log('Cache đã mở, đang thêm các URL vào cache...');
+        
+        // Thêm tất cả URL vào cache
+        return Promise.all(
+          urlsToCache.map(url => {
+            return cache.add(url).catch(error => {
+              console.log(`Không thể cache ${url}:`, error);
+            });
+          })
+        );
+      })
+      .then(() => {
+        console.log('Tất cả tài nguyên đã được cache thành công');
+        return self.skipWaiting(); // Kích hoạt ngay lập tức
+      })
   );
 });
 
-// Bước 2: ACTIVATE - Xóa cache cũ
+// Kích hoạt Service Worker
 self.addEventListener('activate', event => {
-  console.log('🔥 Service Worker đang kích hoạt...');
+  console.log('Service Worker: Đang kích hoạt...');
   
   event.waitUntil(
     caches.keys().then(cacheNames => {
       return Promise.all(
         cacheNames.map(cacheName => {
           if (cacheName !== CACHE_NAME) {
-            console.log(`🗑️ Xóa cache cũ: ${cacheName}`);
+            console.log('Xóa cache cũ:', cacheName);
             return caches.delete(cacheName);
           }
         })
       );
     }).then(() => {
-      console.log('✅ Service Worker đã sẵn sàng!');
-      return self.clients.claim();
+      console.log('Service Worker đã sẵn sàng!');
+      return self.clients.claim(); // Kiểm soát tất cả clients
     })
   );
 });
 
-// Bước 3: FETCH - Xử lý request
+// Chiến lược cache: Network First, fallback to Cache
 self.addEventListener('fetch', event => {
-  // Chỉ xử lý GET request
-  if (event.request.method !== 'GET') return;
+  // Bỏ qua các request không phải HTTP(S)
+  if (!event.request.url.startsWith('http')) return;
   
-  // Bỏ qua chrome-extension
-  if (event.request.url.includes('chrome-extension')) return;
-  
-  // URL của request
-  const url = new URL(event.request.url);
-  
-  // Network first cho API/CDN, Cache first cho static files
-  if (url.pathname.includes('/api/') || url.hostname !== self.location.hostname) {
-    // CDN & API: Network first
-    event.respondWith(
-      fetch(event.request)
-        .then(response => response)
-        .catch(() => {
-          // Offline thì thôi
-          return new Response('Không có kết nối mạng');
-        })
-    );
-  } else {
-    // Static files: Cache first
-    event.respondWith(
-      caches.match(event.request)
-        .then(cachedResponse => {
-          if (cachedResponse) {
-            console.log(`📦 Cache hit: ${event.request.url}`);
-            return cachedResponse;
-          }
+  event.respondWith(
+    fetch(event.request)
+      .then(response => {
+        // Kiểm tra response hợp lệ
+        if (!response || response.status !== 200 || response.type !== 'basic') {
+          return response;
+        }
+        
+        // Clone response để cache
+        const responseToCache = response.clone();
+        
+        caches.open(CACHE_NAME)
+          .then(cache => {
+            // Cache các resource quan trọng
+            const shouldCache = 
+              event.request.url.includes('tudienxedang.github.io') ||
+              event.request.url.includes('twitter-card.png') ||
+              urlsToCache.includes(event.request.url);
+              
+            if (shouldCache) {
+              cache.put(event.request, responseToCache);
+              console.log('Đã cache:', event.request.url);
+            }
+          });
           
-          return fetch(event.request)
-            .then(networkResponse => {
-              // Clone response để cache
-              const responseToCache = networkResponse.clone();
-              
-              caches.open(CACHE_NAME)
-                .then(cache => {
-                  cache.put(event.request, responseToCache);
-                  console.log(`💾 Đã cache: ${event.request.url}`);
-                })
-                .catch(err => console.warn('Không thể cache:', err));
-              
-              return networkResponse;
-            })
-            .catch(() => {
-              // Offline fallback
-              if (event.request.mode === 'navigate') {
-                return caches.match('./index.html');
-              }
-              
-              return new Response('Offline', {
-                status: 503,
-                headers: { 'Content-Type': 'text/plain' }
-              });
+        return response;
+      })
+      .catch(() => {
+        // Khi offline: trả về từ cache
+        return caches.match(event.request)
+          .then(cachedResponse => {
+            if (cachedResponse) {
+              console.log('Đang phục vụ từ cache:', event.request.url);
+              return cachedResponse;
+            }
+            
+            // Nếu không có trong cache và là request navigate
+            if (event.request.mode === 'navigate') {
+              // Trả về trang chính từ cache nếu có
+              return caches.match('https://tudienxedang.github.io/tudien/?verified=true')
+                .then(mainPage => {
+                  if (mainPage) {
+                    console.log('Trả về trang chính từ cache');
+                    return mainPage;
+                  }
+                  
+                  // Fallback: trả về trang splash
+                  return caches.match('/');
+                });
+            }
+            
+            // Fallback cho các request khác
+            return new Response('Offline - Không có kết nối mạng', {
+              status: 503,
+              statusText: 'Service Unavailable',
+              headers: new Headers({
+                'Content-Type': 'text/plain'
+              })
             });
-        })
-    );
-  }
+          });
+      })
+  );
 });
 
-
+// Xử lý message từ client
+self.addEventListener('message', event => {
+  if (event.data === 'skipWaiting') {
+    self.skipWaiting();
+  }
+});
