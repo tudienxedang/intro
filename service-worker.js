@@ -15,6 +15,8 @@ self.addEventListener('install', event => {
         './',
         './index.html',
         './manifest.json',
+        '/icon-192.png',              // Icon nhỏ
+        '/icon-512.png',              // Icon lớn
         // Thêm CSS/JS của mày nếu có
         // './css/style.css',
         // './js/app.js'
@@ -110,3 +112,4 @@ self.addEventListener('fetch', event => {
     );
   }
 });
+
