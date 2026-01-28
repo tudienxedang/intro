@@ -3,257 +3,1018 @@
 <head>
     <meta charset="UTF-8">
     <meta name="viewport" content="width=device-width, initial-scale=1.0">
-    <title>Hệ thống học tiếng Xơ Đăng cho học sinh THCS</title>
-    
-    <meta name="description" content="Hệ thống học tiếng Xơ Đăng trực tuyến dành riêng cho học sinh THCS. Từ điển tương tác, bài học sinh động, trắc nghiệm thông minh. Ứng dụng PWA học offline miễn phí.">
-    
-    <!-- PWA Manifest -->
-    <link rel="manifest" href="manifest.json">
-    
-    <!-- Apple Touch Icon -->
-    <link rel="apple-touch-icon" href="https://raw.githubusercontent.com/tudienxedang/tudien/main/twitter-card.png">
-    
-    <!-- Theme Color -->
-    <meta name="theme-color" content="#059669">
+    <title>Face Recognition Mobile</title>
+    <link rel="stylesheet" href="https://cdnjs.cloudflare.com/ajax/libs/font-awesome/6.4.0/css/all.min.css">
+    <script src="https://cdn.jsdelivr.net/npm/face-api.js@0.22.2/dist/face-api.min.js"></script>
     
     <style>
-        * {
-            margin: 0;
-            padding: 0;
-            box-sizing: border-box;
-        }
-
-        body {
-            font-family: -apple-system, BlinkMacSystemFont, sans-serif;
-            background: linear-gradient(135deg, #f1f5f9 0%, #e2e8f0 100%);
-            height: 100vh;
-            overflow: hidden;
-            display: flex;
+        /* RESET & BASE */
+        * { margin: 0; padding: 0; box-sizing: border-box; font-family: -apple-system, BlinkMacSystemFont, sans-serif; }
+        body { background: #1a1a2e; color: #fff; min-height: 100vh; padding: 15px; }
+        
+        /* CONTAINER */
+        .container { max-width: 1200px; margin: 0 auto; }
+        
+        /* HEADER */
+        header { text-align: center; padding: 20px 0; margin-bottom: 20px; }
+        h1 { font-size: 24px; margin-bottom: 10px; color: #4cc9f0; }
+        .subtitle { color: #a0a0c0; font-size: 14px; margin-bottom: 15px; }
+        
+        /* CARDS */
+        .card { background: rgba(30, 30, 50, 0.8); border-radius: 15px; padding: 20px; margin-bottom: 15px; }
+        
+        /* BUTTONS */
+        .btn { 
+            padding: 12px 20px; 
+            border: none; 
+            border-radius: 10px; 
+            font-weight: 600; 
+            cursor: pointer; 
+            display: inline-flex; 
+            align-items: center; 
             justify-content: center;
-            align-items: center;
+            gap: 8px; 
+            color: white; 
+            font-size: 14px; 
+            transition: opacity 0.3s;
+            min-width: 120px;
         }
-
-        /* Splash Screen */
-        #splash-screen {
-            width: 100%;
-            height: 100%;
-            display: flex;
-            flex-direction: column;
-            justify-content: center;
-            align-items: center;
-            padding: 30px;
-            text-align: center;
+        .btn-primary { background: linear-gradient(90deg, #4361ee, #3a0ca3); }
+        .btn-secondary { background: rgba(255,255,255,0.1); }
+        .btn-success { background: linear-gradient(90deg, #4cc9f0, #4361ee); }
+        .btn-danger { background: linear-gradient(90deg, #f72585, #b5179e); }
+        .btn:disabled { opacity: 0.5; cursor: not-allowed; }
+        .btn:hover:not(:disabled) { opacity: 0.9; }
+        
+        /* DATA MANAGEMENT */
+        .data-actions { display: flex; flex-wrap: wrap; gap: 10px; margin: 15px 0; }
+        
+        /* UPLOAD */
+        .upload-btn-wrapper { position: relative; display: inline-block; }
+        .upload-btn-wrapper input[type=file] { 
+            position: absolute; 
+            left: 0; 
+            top: 0; 
+            opacity: 0; 
+            width: 100%; 
+            height: 100%; 
+            cursor: pointer; 
         }
-
-        .splash-logo-container {
-            width: 140px;
-            height: 140px;
-            border-radius: 50%;
-            background: white;
-            border: 6px solid #059669;
-            overflow: hidden;
-            display: flex;
-            align-items: center;
-            justify-content: center;
-            margin-bottom: 40px;
-            box-shadow: 0 15px 35px rgba(0, 0, 0, 0.1);
-            animation: pulse 2s infinite ease-in-out;
+        
+        /* STATUS */
+        .status { 
+            display: flex; 
+            align-items: center; 
+            justify-content: center; 
+            padding: 12px; 
+            background: rgba(0,0,0,0.3); 
+            border-radius: 10px; 
+            margin: 15px 0; 
+            gap: 10px; 
         }
-
-        .splash-logo-img {
-            width: 100%;
-            height: 100%;
+        .status i { font-size: 18px; }
+        .status-loading { color: #ffd166; }
+        .status-ready { color: #06d6a0; }
+        .status-error { color: #ef476f; }
+        
+        /* VIDEO SECTION */
+        .video-container { 
+            position: relative; 
+            width: 100%; 
+            border-radius: 10px; 
+            overflow: hidden; 
+            background: #000;
+            aspect-ratio: 4/3;
+        }
+        #video, #overlay { 
+            width: 100%; 
+            height: 100%; 
+            display: block; 
             object-fit: cover;
-            padding: 10px;
         }
-
-        .splash-title {
-            font-size: 1.8rem;
-            font-weight: 800;
-            color: #111827;
-            margin-bottom: 15px;
-            line-height: 1.3;
-            max-width: 700px;
+        
+        /* CONTROLS */
+        .controls { 
+            display: flex; 
+            flex-wrap: wrap; 
+            gap: 10px; 
+            justify-content: center; 
+            margin: 15px 0; 
         }
-
-        .splash-subtitle {
-            font-size: 1.1rem;
-            color: #374151;
-            margin-bottom: 50px;
-            font-weight: 500;
-            max-width: 600px;
+        
+        /* RESULTS */
+        .detection-results { 
+            max-height: 300px; 
+            overflow-y: auto;
+            padding-right: 5px;
         }
-
-        .progress-container {
-            width: 280px;
-            height: 8px;
-            background: rgba(5, 150, 105, 0.1);
-            border-radius: 4px;
-            overflow: hidden;
-            margin-bottom: 20px;
+        .detection-results::-webkit-scrollbar {
+            width: 4px;
         }
-
-        .progress-bar {
-            height: 100%;
-            width: 0%;
-            background: linear-gradient(90deg, #059669, #10b981);
-            border-radius: 4px;
-            animation: loadingFill 3.5s cubic-bezier(0.22, 1, 0.36, 1) forwards;
+        .detection-results::-webkit-scrollbar-track {
+            background: rgba(255,255,255,0.1);
+            border-radius: 2px;
         }
-
-        .splash-loading-text {
-            font-size: 0.9rem;
-            color: #6b7280;
-            margin-top: 20px;
+        .detection-results::-webkit-scrollbar-thumb {
+            background: #4361ee;
+            border-radius: 2px;
         }
-
-        /* Offline message */
-        .offline-message {
-            display: none;
-            background: #fee2e2;
-            color: #dc2626;
-            padding: 12px 20px;
-            border-radius: 8px;
-            margin-top: 20px;
-            max-width: 500px;
-            font-size: 0.9rem;
+        .face-card { 
+            background: rgba(50, 50, 80, 0.6); 
+            border-radius: 10px; 
+            padding: 15px; 
+            margin-bottom: 10px; 
         }
-
-        @keyframes loadingFill {
-            from { width: 0; }
-            to { width: 100%; }
+        .face-id { 
+            font-weight: 600; 
+            margin-bottom: 8px; 
+            display: flex; 
+            align-items: center; 
+            gap: 8px; 
         }
-
-        @keyframes pulse {
-            0%, 100% { transform: scale(1); }
-            50% { transform: scale(1.05); }
+        
+        /* PEOPLE TAGS */
+        .loaded-people { 
+            display: flex; 
+            flex-wrap: wrap; 
+            gap: 8px; 
+            margin-top: 10px; 
         }
+        .person-tag { 
+            background: #06d6a0; 
+            color: white; 
+            padding: 5px 10px; 
+            border-radius: 15px; 
+            font-size: 12px; 
+            display: inline-flex;
+            align-items: center;
+            gap: 5px;
+        }
+        
+        /* PERFORMANCE INFO */
+        .performance { 
+            display: flex; 
+            justify-content: space-between; 
+            font-size: 12px; 
+            margin-top: 10px; 
+            color: #888; 
+        }
+        
+        /* MOBILE OPTIMIZATION */
+        @media (max-width: 768px) {
+            .container { padding: 10px; }
+            .card { padding: 15px; }
+            .btn { padding: 10px 15px; font-size: 13px; min-width: 110px; }
+            h1 { font-size: 20px; }
+            .controls { gap: 8px; }
+            .data-actions { gap: 8px; }
+        }
+        
+        /* LOADING STATES */
+        .loading { opacity: 0.7; pointer-events: none; }
     </style>
 </head>
 <body>
-    <!-- Splash Screen -->
-    <div id="splash-screen">
-        <div class="splash-logo-container">
-            <img src="https://raw.githubusercontent.com/tudienxedang/tudien/main/twitter-card.png" 
-                 alt="Logo Hệ thống học tiếng Xơ Đăng" 
-                 class="splash-logo-img">
+    <div class="container">
+        <header>
+            <h1><i class="fas fa-robot"></i> Face Recognition</h1>
+            <p class="subtitle">Nhận diện khuôn mặt trên trình duyệt</p>
+        </header>
+        
+        <!-- DATA MANAGEMENT -->
+        <div class="card">
+            <h3><i class="fas fa-database"></i> Quản lý dữ liệu</h3>
+            <div class="data-actions">
+                <button class="btn btn-success" id="exportData">
+                    <i class="fas fa-download"></i> Xuất
+                </button>
+                <button class="btn btn-primary" id="importData">
+                    <i class="fas fa-upload"></i> Nhập
+                </button>
+                <button class="btn btn-danger" id="clearData">
+                    <i class="fas fa-trash"></i> Xóa
+                </button>
+                <input type="file" id="importFile" accept=".json" style="display:none;">
+            </div>
+            <div id="storageInfo" style="font-size:12px; color:#aaa; margin-top:10px;">
+                <i class="fas fa-spinner fa-spin"></i> Đang kiểm tra dữ liệu...
+            </div>
         </div>
         
-        <h1 class="splash-title">Hệ thống hỗ trợ học tiếng Xơ Đăng</h1>
-        <div class="splash-subtitle">Trên nền tảng PWA cho học sinh THCS</div>
-        
-        <div class="progress-container">
-            <div class="progress-bar"></div>
+        <!-- UPLOAD IMAGES -->
+        <div class="card">
+            <h3><i class="fas fa-images"></i> Thêm dữ liệu</h3>
+            <p style="font-size:12px; color:#aaa; margin:10px 0;">
+                Chọn thư mục chứa ảnh: <strong>Tên_Người/ảnh.jpg</strong>
+            </p>
+            <div class="upload-btn-wrapper">
+                <button class="btn btn-primary" id="uploadBtn">
+                    <i class="fas fa-folder-open"></i> Chọn thư mục
+                </button>
+                <input type="file" id="folderUpload" webkitdirectory directory multiple accept="image/*">
+            </div>
+            <div id="dataStatus" style="font-size:12px; margin-top:10px; color:#aaa;">
+                Chưa có dữ liệu
+            </div>
+            <div class="loaded-people" id="loadedPeople"></div>
         </div>
         
-        <p class="splash-loading-text">Đang chuyển đến ứng dụng...</p>
-        
-        <div class="offline-message" id="offline-message">
-            ⚠️ Bạn đang offline. Ứng dụng đang chạy ở chế độ ngoại tuyến.
+        <!-- STATUS -->
+        <div class="status" id="status">
+            <i class="fas fa-sync-alt fa-spin"></i>
+            <span>Đang khởi tạo...</span>
         </div>
+        
+        <!-- MAIN CONTENT -->
+        <div style="display: grid; grid-template-columns: 1fr; gap: 15px;">
+            <div class="card">
+                <h3><i class="fas fa-video"></i> Camera</h3>
+                <div class="video-container">
+                    <video id="video" autoplay muted playsinline></video>
+                    <canvas id="overlay"></canvas>
+                </div>
+                
+                <div class="performance">
+                    <span><i class="fas fa-tachometer-alt"></i> FPS: <span id="fpsCounter">0</span></span>
+                    <span><i class="fas fa-user"></i> Faces: <span id="detectionCount">0</span></span>
+                </div>
+                
+                <div class="controls">
+                    <button id="startButton" class="btn btn-primary" disabled>
+                        <i class="fas fa-play"></i> Bắt đầu
+                    </button>
+                    <button id="stopButton" class="btn btn-secondary" disabled>
+                        <i class="fas fa-stop"></i> Dừng
+                    </button>
+                    <button id="captureButton" class="btn btn-success" disabled>
+                        <i class="fas fa-camera"></i> Chụp
+                    </button>
+                </div>
+            </div>
+            
+            <div class="card">
+                <h3><i class="fas fa-list"></i> Kết quả</h3>
+                <div class="detection-results" id="resultsContainer">
+                    <div style="text-align:center; padding:20px; color:#666;">
+                        Chưa phát hiện khuôn mặt
+                    </div>
+                </div>
+            </div>
+        </div>
+        
+        <footer style="text-align:center; padding:20px 0; color:#666; font-size:12px;">
+            <p>Face Recognition Mobile • Hoạt động offline • Dữ liệu lưu local</p>
+        </footer>
     </div>
 
     <script>
-        // Kiểm tra trạng thái mạng
-        function checkNetworkAndRedirect() {
-            const mainAppUrl = "https://tudienxedang.github.io/tudien/?verified=true";
-            const offlineMessage = document.getElementById('offline-message');
-            const loadingText = document.querySelector('.splash-loading-text');
-            
-            if (!navigator.onLine) {
-                // Offline: Hiển thị thông báo và chuyển hướng sau 5 giây
-                offlineMessage.style.display = 'block';
-                loadingText.textContent = 'Đang tải phiên bản offline...';
-                
-                setTimeout(() => {
-                    // Kiểm tra xem trang chính đã được cache chưa
-                    caches.match(mainAppUrl)
-                        .then(response => {
-                            if (response) {
-                                // Nếu đã cache, mở trang cache
-                                window.location.href = mainAppUrl;
-                            } else {
-                                // Nếu chưa cache, hiển thị thông báo
-                                loadingText.innerHTML = 'Ứng dụng chưa được cache. Vui lòng kết nối mạng ít nhất một lần.';
-                                loadingText.style.color = '#dc2626';
-                            }
-                        })
-                        .catch(() => {
-                            loadingText.innerHTML = 'Không thể tải ứng dụng offline. Vui lòng kết nối mạng.';
-                            loadingText.style.color = '#dc2626';
-                        });
-                }, 2000);
-            } else {
-                // Online: Chuyển hướng bình thường sau 3.5 giây
-                setTimeout(() => {
-                    window.location.href = mainAppUrl;
-                }, 3500);
-            }
+        // ============================================
+        // HỆ THỐNG NHẬN DIỆN KHUÔN MẶT - ĐÃ FIX LỖI
+        // ============================================
+
+        // --- BIẾN TOÀN CỤC ---
+        const video = document.getElementById('video');
+        const overlay = document.getElementById('overlay');
+        const overlayCtx = overlay.getContext('2d');
+        const statusElement = document.getElementById('status');
+        const dataStatus = document.getElementById('dataStatus');
+        const loadedPeopleContainer = document.getElementById('loadedPeople');
+        const storageInfo = document.getElementById('storageInfo');
+        const fpsCounter = document.getElementById('fpsCounter');
+        const detectionCount = document.getElementById('detectionCount');
+        const uploadBtn = document.getElementById('uploadBtn');
+        
+        let isDetecting = false;
+        let modelsLoaded = false;
+        let faceMatcher = null;
+        let db = null;
+        let frameCount = 0;
+        let lastTimestamp = 0;
+        let fps = 0;
+        let detectionOptions = null;
+        let isProcessingUpload = false;
+        
+        // CẤU HÌNH
+        const MATCH_THRESHOLD = 0.5;
+        const INPUT_SIZE = 224;
+        const FPS_LIMIT = 15; // Giới hạn FPS cho mobile
+        const BATCH_SIZE = 3; // Xử lý ảnh theo batch
+        
+        // INDEXEDDB - FIX VERSION ERROR
+        const DB_NAME = 'FaceRecognitionDB';
+        const STORE_NAME = 'faces';
+        let DB_VERSION = 1;
+        
+        // --- TIỆN ÍCH ---
+        function isMobile() {
+            return /Android|webOS|iPhone|iPad|iPod|BlackBerry|IEMobile|Opera Mini/i.test(navigator.userAgent);
         }
-
-        // Sau khi DOM tải xong, kiểm tra mạng và chuyển hướng
-        document.addEventListener('DOMContentLoaded', checkNetworkAndRedirect);
-
-        // PWA Service Worker Registration
-        if ('serviceWorker' in navigator) {
-            window.addEventListener('load', () => {
-                navigator.serviceWorker.register('sw.js')
-                    .then(registration => {
-                        console.log('Service Worker đã đăng ký thành công:', registration.scope);
-                        
-                        // Kiểm tra và cập nhật cache ngay khi online
-                        if (navigator.onLine) {
-                            registration.update();
+        
+        function updateStatus(msg, type = 'loading') {
+            const icon = statusElement.querySelector('i');
+            statusElement.querySelector('span').textContent = msg;
+            statusElement.className = `status status-${type}`;
+            icon.className = type === 'loading' ? 'fas fa-sync-alt fa-spin' : 
+                            type === 'ready' ? 'fas fa-check-circle' : 'fas fa-exclamation-circle';
+        }
+        
+        function showAlert(msg, type = 'info') {
+            const colors = { info: '#4cc9f0', success: '#06d6a0', error: '#ef476f' };
+            updateStatus(msg, type === 'error' ? 'error' : 'ready');
+            setTimeout(() => {
+                if (modelsLoaded) updateStatus('Sẵn sàng', 'ready');
+            }, 2000);
+        }
+        
+        // --- INDEXEDDB - FIXED VERSION HANDLING ---
+        function initIndexedDB() {
+            return new Promise((resolve, reject) => {
+                // Trước tiên, kiểm tra version hiện tại
+                const checkRequest = indexedDB.open(DB_NAME);
+                
+                checkRequest.onsuccess = (event) => {
+                    const tempDb = event.target.result;
+                    DB_VERSION = tempDb.version; // Lấy version hiện tại
+                    tempDb.close();
+                    
+                    // Mở với version hiện tại + 1 để tránh lỗi
+                    const openRequest = indexedDB.open(DB_NAME, DB_VERSION + 1);
+                    
+                    openRequest.onerror = (e) => {
+                        console.error("DB Open Error:", e.target.error);
+                        // Nếu lỗi, thử mở với version hiện tại
+                        const fallbackRequest = indexedDB.open(DB_NAME, DB_VERSION);
+                        fallbackRequest.onsuccess = (e) => {
+                            db = e.target.result;
+                            resolve();
+                        };
+                        fallbackRequest.onerror = reject;
+                    };
+                    
+                    openRequest.onsuccess = (event) => {
+                        db = event.target.result;
+                        resolve();
+                    };
+                    
+                    openRequest.onupgradeneeded = (event) => {
+                        const db = event.target.result;
+                        if (!db.objectStoreNames.contains(STORE_NAME)) {
+                            db.createObjectStore(STORE_NAME, { keyPath: 'label' });
                         }
-                    })
-                    .catch(error => {
-                        console.log('Đăng ký Service Worker thất bại:', error);
-                    });
+                    };
+                };
+                
+                checkRequest.onerror = () => {
+                    // Database chưa tồn tại, tạo mới với version 1
+                    const createRequest = indexedDB.open(DB_NAME, 1);
+                    
+                    createRequest.onerror = reject;
+                    
+                    createRequest.onsuccess = (event) => {
+                        db = event.target.result;
+                        resolve();
+                    };
+                    
+                    createRequest.onupgradeneeded = (event) => {
+                        const db = event.target.result;
+                        if (!db.objectStoreNames.contains(STORE_NAME)) {
+                            db.createObjectStore(STORE_NAME, { keyPath: 'label' });
+                        }
+                    };
+                };
             });
         }
-
-        // Theo dõi sự kiện online/offline
-        window.addEventListener('online', () => {
-            console.log('Đã kết nối lại mạng');
-        });
-
-        window.addEventListener('offline', () => {
-            console.log('Mất kết nối mạng');
-        });
-
-        // Tạo manifest file động
-        const manifest = {
-            "name": "Học tiếng Xơ Đăng THCS",
-            "short_name": "Xơ Đăng THCS",
-            "description": "Hệ thống học tiếng Xơ Đăng cho học sinh THCS - Hoạt động offline",
-            "start_url": "/",
-            "display": "standalone",
-            "background_color": "#f1f5f9",
-            "theme_color": "#059669",
-            "icons": [
-                {
-                    "src": "https://raw.githubusercontent.com/tudienxedang/tudien/main/twitter-card.png",
-                    "sizes": "192x192",
-                    "type": "image/png",
-                    "purpose": "any maskable"
-                },
-                {
-                    "src": "https://raw.githubusercontent.com/tudienxedang/tudien/main/twitter-card.png",
-                    "sizes": "512x512",
-                    "type": "image/png",
-                    "purpose": "any maskable"
-                }
-            ]
-        };
-
-        // Tạo manifest.json file
-        const manifestBlob = new Blob([JSON.stringify(manifest)], {type: 'application/json'});
-        const manifestURL = URL.createObjectURL(manifestBlob);
         
-        // Cập nhật link manifest
-        const link = document.querySelector('link[rel="manifest"]');
-        if (link) {
-            link.href = manifestURL;
+        async function saveToIndexedDB(label, descriptors) {
+            return new Promise((resolve, reject) => {
+                if (!db) return reject("No DB connection");
+                
+                const transaction = db.transaction([STORE_NAME], 'readwrite');
+                const store = transaction.objectStore(STORE_NAME);
+                
+                // Chuyển descriptors sang array
+                const descriptorsArray = descriptors.map(d => Array.from(d));
+                
+                // Tạo hoặc cập nhật item
+                const getRequest = store.get(label);
+                
+                getRequest.onsuccess = () => {
+                    const existing = getRequest.result;
+                    const item = {
+                        label: label,
+                        descriptors: existing ? [...existing.descriptors, ...descriptorsArray] : descriptorsArray,
+                        timestamp: Date.now(),
+                        count: existing ? existing.descriptors.length + descriptors.length : descriptors.length
+                    };
+                    
+                    const putRequest = store.put(item);
+                    putRequest.onsuccess = () => resolve();
+                    putRequest.onerror = (e) => reject(e.target.error);
+                };
+                
+                getRequest.onerror = (e) => reject(e.target.error);
+            });
+        }
+        
+        async function loadFromIndexedDB() {
+            return new Promise((resolve, reject) => {
+                if (!db) return reject("No DB connection");
+                
+                const transaction = db.transaction([STORE_NAME], 'readonly');
+                const store = transaction.objectStore(STORE_NAME);
+                const request = store.getAll();
+                
+                request.onsuccess = (e) => resolve(e.target.result || []);
+                request.onerror = (e) => reject(e.target.error);
+            });
+        }
+        
+        async function loadFaceMatcher() {
+            try {
+                const items = await loadFromIndexedDB();
+                if (!items || items.length === 0) return null;
+                
+                const labeledDescriptors = [];
+                for (const item of items) {
+                    try {
+                        const descriptors = item.descriptors.map(arr => new Float32Array(arr));
+                        labeledDescriptors.push(new faceapi.LabeledFaceDescriptors(item.label, descriptors));
+                    } catch (e) {
+                        console.warn("Error processing stored data for", item.label, e);
+                    }
+                }
+                
+                return labeledDescriptors.length > 0 ? 
+                    new faceapi.FaceMatcher(labeledDescriptors, MATCH_THRESHOLD) : null;
+            } catch (error) {
+                console.error("Load FaceMatcher error:", error);
+                return null;
+            }
+        }
+        
+        async function checkStoredData() {
+            try {
+                const items = await loadFromIndexedDB();
+                loadedPeopleContainer.innerHTML = '';
+                
+                if (items && items.length > 0) {
+                    const totalPeople = items.length;
+                    const totalImages = items.reduce((sum, item) => sum + (item.count || 0), 0);
+                    
+                    storageInfo.innerHTML = `<i class="fas fa-check-circle" style="color:#06d6a0;"></i> ${totalPeople} người (${totalImages} ảnh)`;
+                    dataStatus.innerHTML = `<i class="fas fa-check-circle" style="color:#06d6a0;"></i> Đã có dữ liệu`;
+                    
+                    items.forEach(item => {
+                        const tag = document.createElement('span');
+                        tag.className = 'person-tag';
+                        tag.innerHTML = `<i class="fas fa-user"></i> ${item.label} <span style="opacity:0.8;">(${item.count})</span>`;
+                        loadedPeopleContainer.appendChild(tag);
+                    });
+                    
+                    faceMatcher = await loadFaceMatcher();
+                } else {
+                    storageInfo.innerHTML = `<i class="fas fa-info-circle"></i> Chưa có dữ liệu`;
+                    dataStatus.innerHTML = `<i class="fas fa-info-circle"></i> Chưa có dữ liệu`;
+                }
+            } catch (error) {
+                console.error("Check stored data error:", error);
+                storageInfo.innerHTML = `<i class="fas fa-exclamation-triangle" style="color:#ef476f;"></i> Lỗi đọc dữ liệu`;
+            }
+        }
+        
+        async function clearAllData() {
+            return new Promise((resolve, reject) => {
+                if (!db) return reject("No DB connection");
+                
+                const transaction = db.transaction([STORE_NAME], 'readwrite');
+                const store = transaction.objectStore(STORE_NAME);
+                const request = store.clear();
+                
+                request.onsuccess = () => resolve();
+                request.onerror = (e) => reject(e.target.error);
+            });
+        }
+        
+        // --- XUẤT/NHẬP DỮ LIỆU ---
+        async function exportData() {
+            try {
+                const items = await loadFromIndexedDB();
+                if (items.length === 0) {
+                    showAlert("Không có dữ liệu để xuất", "info");
+                    return;
+                }
+                
+                const exportData = {
+                    version: "2.0",
+                    timestamp: Date.now(),
+                    people: items
+                };
+                
+                const dataStr = JSON.stringify(exportData, null, 2);
+                const blob = new Blob([dataStr], { type: 'application/json' });
+                const url = URL.createObjectURL(blob);
+                
+                const a = document.createElement('a');
+                a.href = url;
+                a.download = `face_data_${new Date().toISOString().slice(0,10)}.json`;
+                document.body.appendChild(a);
+                a.click();
+                document.body.removeChild(a);
+                
+                URL.revokeObjectURL(url);
+                showAlert(`Đã xuất ${items.length} người`, "success");
+                
+            } catch (error) {
+                console.error("Export error:", error);
+                showAlert("Lỗi xuất dữ liệu", "error");
+            }
+        }
+        
+        async function importData(file) {
+            return new Promise((resolve, reject) => {
+                const reader = new FileReader();
+                reader.onload = async (e) => {
+                    try {
+                        const data = JSON.parse(e.target.result);
+                        if (!data.people || !Array.isArray(data.people)) {
+                            throw new Error("File không hợp lệ");
+                        }
+                        
+                        updateStatus('Đang import dữ liệu...', 'loading');
+                        
+                        // Import từng người
+                        for (const person of data.people) {
+                            if (person.descriptors && Array.isArray(person.descriptors)) {
+                                const descriptors = person.descriptors.map(arr => new Float32Array(arr));
+                                await saveToIndexedDB(person.label, descriptors);
+                            }
+                        }
+                        
+                        await checkStoredData();
+                        showAlert(`Đã import ${data.people.length} người`, "success");
+                        resolve();
+                    } catch (error) {
+                        console.error("Import error:", error);
+                        showAlert("File không hợp lệ", "error");
+                        reject(error);
+                    }
+                };
+                reader.readAsText(file);
+            });
+        }
+        
+        // --- TẢI MÔ HÌNH ---
+        async function loadModels() {
+            try {
+                updateStatus('Đang tải mô hình AI...', 'loading');
+                
+                // Sử dụng multiple CDN fallbacks
+                const CDN_URLS = [
+                    'https://raw.githubusercontent.com/justadudewhohacks/face-api.js/master/weights',
+                    'https://cdn.jsdelivr.net/gh/justadudewhohacks/face-api.js@master/weights'
+                ];
+                
+                let loaded = false;
+                for (const MODEL_URL of CDN_URLS) {
+                    try {
+                        await Promise.all([
+                            faceapi.nets.tinyFaceDetector.loadFromUri(MODEL_URL),
+                            faceapi.nets.faceLandmark68Net.loadFromUri(MODEL_URL),
+                            faceapi.nets.faceRecognitionNet.loadFromUri(MODEL_URL),
+                            faceapi.nets.faceExpressionNet.loadFromUri(MODEL_URL),
+                            faceapi.nets.ageGenderNet.loadFromUri(MODEL_URL)
+                        ]);
+                        loaded = true;
+                        break;
+                    } catch (e) {
+                        console.warn(`CDN ${MODEL_URL} failed, trying next...`);
+                    }
+                }
+                
+                if (!loaded) {
+                    throw new Error("Không thể tải mô hình từ bất kỳ CDN nào");
+                }
+                
+                detectionOptions = new faceapi.TinyFaceDetectorOptions({
+                    inputSize: INPUT_SIZE,
+                    scoreThreshold: 0.5
+                });
+                
+                modelsLoaded = true;
+                document.getElementById('startButton').disabled = false;
+                document.getElementById('captureButton').disabled = false;
+                updateStatus('Sẵn sàng', 'ready');
+                
+            } catch (error) {
+                console.error("Load models error:", error);
+                updateStatus('Lỗi tải mô hình. Refresh trang thử lại.', 'error');
+            }
+        }
+        
+        // --- XỬ LÝ UPLOAD ẢNH - OPTIMIZED ---
+        document.getElementById('folderUpload').addEventListener('change', async (e) => {
+            if (!modelsLoaded) {
+                showAlert("Đợi hệ thống khởi tạo xong", "info");
+                return;
+            }
+            
+            if (isProcessingUpload) {
+                showAlert("Đang xử lý ảnh khác...", "info");
+                return;
+            }
+            
+            const files = Array.from(e.target.files);
+            if (files.length === 0) return;
+            
+            isProcessingUpload = true;
+            uploadBtn.classList.add('loading');
+            uploadBtn.disabled = true;
+            updateStatus('Đang xử lý ảnh...', 'loading');
+            
+            // Nhóm file theo tên thư mục
+            const labeledImages = {};
+            let validFiles = 0;
+            
+            files.forEach(file => {
+                if (file.type.startsWith('image/')) {
+                    const path = file.webkitRelativePath.split('/');
+                    if (path.length >= 2) {
+                        const label = path[path.length - 2];
+                        if (!labeledImages[label]) labeledImages[label] = [];
+                        labeledImages[label].push(file);
+                        validFiles++;
+                    }
+                }
+            });
+            
+            if (validFiles === 0) {
+                showAlert("Không tìm thấy ảnh hợp lệ", "error");
+                isProcessingUpload = false;
+                uploadBtn.classList.remove('loading');
+                uploadBtn.disabled = false;
+                e.target.value = '';
+                return;
+            }
+            
+            const labels = Object.keys(labeledImages);
+            let processedPeople = 0;
+            let processedImages = 0;
+            
+            // Xử lý từng người theo batch
+            for (const label of labels) {
+                const imageFiles = labeledImages[label];
+                const descriptors = [];
+                
+                // Chia nhỏ ảnh thành các batch để tránh block UI
+                for (let i = 0; i < imageFiles.length; i += BATCH_SIZE) {
+                    const batch = imageFiles.slice(i, i + BATCH_SIZE);
+                    
+                    // Sử dụng Promise.all cho mỗi batch
+                    const batchPromises = batch.map(async (file) => {
+                        try {
+                            const img = await faceapi.bufferToImage(file);
+                            const detection = await faceapi.detectSingleFace(img, detectionOptions)
+                                .withFaceLandmarks()
+                                .withFaceDescriptor();
+                            
+                            if (detection) {
+                                return detection.descriptor;
+                            }
+                        } catch (err) {
+                            console.warn(`Lỗi xử lý ảnh ${file.name}:`, err);
+                        }
+                        return null;
+                    });
+                    
+                    const batchResults = await Promise.all(batchPromises);
+                    const validDescriptors = batchResults.filter(d => d !== null);
+                    descriptors.push(...validDescriptors);
+                    processedImages += validDescriptors.length;
+                    
+                    // Cập nhật tiến trình
+                    updateStatus(`Đang xử lý: ${label} (${processedImages}/${validFiles} ảnh)`, 'loading');
+                    
+                    // Giải phóng event loop
+                    await new Promise(resolve => setTimeout(resolve, 0));
+                }
+                
+                if (descriptors.length > 0) {
+                    await saveToIndexedDB(label, descriptors);
+                    processedPeople++;
+                    
+                    // Thêm tag
+                    const tag = document.createElement('span');
+                    tag.className = 'person-tag';
+                    tag.innerHTML = `<i class="fas fa-user"></i> ${label} <span style="opacity:0.8;">(${descriptors.length})</span>`;
+                    loadedPeopleContainer.appendChild(tag);
+                }
+            }
+            
+            // Cập nhật face matcher
+            faceMatcher = await loadFaceMatcher();
+            await checkStoredData();
+            
+            isProcessingUpload = false;
+            uploadBtn.classList.remove('loading');
+            uploadBtn.disabled = false;
+            e.target.value = '';
+            
+            if (processedPeople > 0) {
+                showAlert(`Đã xử lý ${processedPeople} người (${processedImages} ảnh)`, "success");
+            } else {
+                showAlert("Không tìm thấy khuôn mặt hợp lệ", "error");
+            }
+        });
+        
+        // --- CAMERA & DETECTION ---
+        async function startCamera() {
+            try {
+                const constraints = {
+                    video: { 
+                        width: { ideal: 640 }, 
+                        height: { ideal: 480 },
+                        facingMode: 'user',
+                        frameRate: { ideal: FPS_LIMIT }
+                    }
+                };
+                
+                const stream = await navigator.mediaDevices.getUserMedia(constraints);
+                video.srcObject = stream;
+                
+                return new Promise(resolve => {
+                    video.onloadedmetadata = () => {
+                        overlay.width = video.videoWidth;
+                        overlay.height = video.videoHeight;
+                        resolve();
+                    };
+                });
+            } catch (error) {
+                console.error("Camera error:", error);
+                showAlert('Lỗi camera: ' + (error.message || 'Không thể truy cập'), "error");
+                throw error;
+            }
+        }
+        
+        async function detectFaces() {
+            if (!isDetecting || !modelsLoaded) return;
+            
+            const startTime = performance.now();
+            
+            // Kiểm tra kích thước
+            if (overlay.width !== video.videoWidth || overlay.height !== video.videoHeight) {
+                overlay.width = video.videoWidth;
+                overlay.height = video.videoHeight;
+            }
+            
+            // Xóa canvas
+            overlayCtx.clearRect(0, 0, overlay.width, overlay.height);
+            
+            try {
+                // Phát hiện khuôn mặt
+                const detections = await faceapi.detectAllFaces(video, detectionOptions)
+                    .withFaceLandmarks()
+                    .withFaceDescriptors()
+                    .withAgeAndGender();
+                
+                const resizedDetections = faceapi.resizeResults(detections, {
+                    width: video.videoWidth,
+                    height: video.videoHeight
+                });
+                
+                detectionCount.textContent = resizedDetections.length;
+                
+                const results = [];
+                resizedDetections.forEach((det, i) => {
+                    const box = det.detection.box;
+                    const descriptor = det.descriptor;
+                    
+                    let label = "Unknown";
+                    if (faceMatcher && descriptor) {
+                        try {
+                            const match = faceMatcher.findBestMatch(descriptor);
+                            label = match.label;
+                        } catch (e) {
+                            console.warn("Face matching error:", e);
+                        }
+                    }
+                    
+                    const isKnown = label !== "unknown" && label !== "Unknown";
+                    
+                    // Vẽ bounding box
+                    overlayCtx.strokeStyle = isKnown ? '#06d6a0' : '#ef476f';
+                    overlayCtx.lineWidth = 2;
+                    overlayCtx.strokeRect(box.x, box.y, box.width, box.height);
+                    
+                    // Vẽ label
+                    overlayCtx.fillStyle = 'rgba(0,0,0,0.7)';
+                    overlayCtx.fillRect(box.x, box.y - 25, 180, 22);
+                    overlayCtx.fillStyle = isKnown ? '#06d6a0' : '#ffd166';
+                    overlayCtx.font = 'bold 12px Arial';
+                    overlayCtx.fillText(label, box.x + 5, box.y - 8);
+                    
+                    results.push({
+                        id: i + 1,
+                        label: label,
+                        age: Math.round(det.age),
+                        gender: det.gender
+                    });
+                });
+                
+                updateResultsUI(results);
+                
+            } catch (error) {
+                console.error("Detection error:", error);
+            }
+            
+            // Tính FPS
+            frameCount++;
+            if (startTime >= lastTimestamp + 1000) {
+                fps = Math.round((frameCount * 1000) / (startTime - lastTimestamp));
+                frameCount = 0;
+                lastTimestamp = startTime;
+                fpsCounter.textContent = fps;
+            }
+            
+            // Giới hạn FPS để tiết kiệm pin
+            const delay = Math.max(0, 1000/FPS_LIMIT - (performance.now() - startTime));
+            setTimeout(() => {
+                if (isDetecting) requestAnimationFrame(detectFaces);
+            }, delay);
+        }
+        
+        function updateResultsUI(results) {
+            const container = document.getElementById('resultsContainer');
+            
+            if (results.length === 0) {
+                container.innerHTML = '<div style="text-align:center; padding:20px; color:#666;">Chưa phát hiện</div>';
+                return;
+            }
+            
+            let html = '';
+            results.forEach(res => {
+                const isKnown = res.label !== "unknown" && res.label !== "Unknown";
+                html += `
+                <div class="face-card">
+                    <div class="face-id" style="color:${isKnown ? '#06d6a0' : '#ffd166'}">
+                        <i class="fas ${isKnown ? 'fa-check-circle' : 'fa-question-circle'}"></i>
+                        ${res.label}
+                    </div>
+                    <div style="font-size:12px; color:#aaa;">
+                        ${res.age} tuổi • ${res.gender === 'male' ? 'Nam' : 'Nữ'}
+                    </div>
+                </div>
+                `;
+            });
+            container.innerHTML = html;
+        }
+        
+        // --- CHỤP ẢNH ---
+        document.getElementById('captureButton').addEventListener('click', async () => {
+            if (!video.srcObject || !modelsLoaded) {
+                showAlert("Bật camera trước", "info");
+                return;
+            }
+            
+            const name = prompt("Nhập tên người:", "");
+            if (!name || name.trim() === "") return;
+            
+            updateStatus('Đang xử lý...', 'loading');
+            captureButton.disabled = true;
+            
+            try {
+                const canvas = document.createElement('canvas');
+                canvas.width = video.videoWidth;
+                canvas.height = video.videoHeight;
+                const ctx = canvas.getContext('2d');
+                ctx.drawImage(video, 0, 0);
+                
+                const detection = await faceapi.detectSingleFace(canvas, detectionOptions)
+                    .withFaceLandmarks()
+                    .withFaceDescriptor();
+                
+                if (detection) {
+                    await saveToIndexedDB(name, [detection.descriptor]);
+                    faceMatcher = await loadFaceMatcher();
+                    await checkStoredData();
+                    showAlert(`Đã học ${name} thành công`, "success");
+                } else {
+                    showAlert("Không tìm thấy khuôn mặt", "error");
+                }
+            } catch (error) {
+                console.error("Capture error:", error);
+                showAlert("Lỗi xử lý ảnh", "error");
+            } finally {
+                captureButton.disabled = false;
+            }
+        });
+        
+        // --- SỰ KIỆN ---
+        document.getElementById('startButton').addEventListener('click', async () => {
+            if (!modelsLoaded) return;
+            
+            try {
+                await startCamera();
+                isDetecting = true;
+                startButton.disabled = true;
+                stopButton.disabled = false;
+                captureButton.disabled = false;
+                updateStatus('Đang nhận diện...', 'loading');
+                detectFaces();
+            } catch (error) {
+                isDetecting = false;
+                startButton.disabled = false;
+                stopButton.disabled = true;
+            }
+        });
+        
+        document.getElementById('stopButton').addEventListener('click', () => {
+            isDetecting = false;
+            if (video.srcObject) {
+                video.srcObject.getTracks().forEach(track => track.stop());
+                video.srcObject = null;
+            }
+            overlayCtx.clearRect(0, 0, overlay.width, overlay.height);
+            startButton.disabled = false;
+            stopButton.disabled = true;
+            captureButton.disabled = true;
+            detectionCount.textContent = '0';
+            fpsCounter.textContent = '0';
+            updateStatus('Đã dừng', 'ready');
+        });
+        
+        document.getElementById('exportData').addEventListener('click', exportData);
+        
+        document.getElementById('importData').addEventListener('click', () => {
+            document.getElementById('importFile').click();
+        });
+        
+        document.getElementById('importFile').addEventListener('change', async (e) => {
+            const file = e.target.files[0];
+            if (file) {
+                try {
+                    await importData(file);
+                } catch (error) {
+                    console.error("Import error:", error);
+                }
+                e.target.value = '';
+            }
+        });
+        
+        document.getElementById('clearData').addEventListener('click', async () => {
+            if (!confirm("XÓA TẤT CẢ dữ liệu? Hành động này không thể hoàn tác!")) return;
+            
+            try {
+                updateStatus('Đang xóa dữ liệu...', 'loading');
+                await clearAllData();
+                loadedPeopleContainer.innerHTML = '';
+                faceMatcher = null;
+                await checkStoredData();
+                showAlert("Đã xóa toàn bộ dữ liệu", "success");
+            } catch (error) {
+                console.error("Clear data error:", error);
+                showAlert("Lỗi xóa dữ liệu", "error");
+            }
+        });
+        
+        // --- KHỞI ĐỘNG ---
+        async function initialize() {
+            try {
+                await initIndexedDB();
+                await checkStoredData();
+                await loadModels();
+                
+                // Xử lý orientation change
+                window.addEventListener('orientationchange', () => {
+                    if (isDetecting && video.videoWidth) {
+                        overlay.width = video.videoWidth;
+                        overlay.height = video.videoHeight;
+                    }
+                });
+                
+                // Xử lý page visibility
+                document.addEventListener('visibilitychange', () => {
+                    if (document.hidden && isDetecting) {
+                        isDetecting = false;
+                        if (video.srcObject) {
+                            video.srcObject.getTracks().forEach(track => track.stop());
+                        }
+                        startButton.disabled = false;
+                        stopButton.disabled = true;
+                        captureButton.disabled = true;
+                    }
+                });
+                
+            } catch (error) {
+                console.error("Init error:", error);
+                updateStatus('Lỗi khởi tạo hệ thống', 'error');
+            }
+        }
+        
+        // Chạy khi trang load xong
+        if (document.readyState === 'loading') {
+            document.addEventListener('DOMContentLoaded', initialize);
+        } else {
+            initialize();
         }
     </script>
 </body>
