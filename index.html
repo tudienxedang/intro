@@ -2,490 +2,480 @@
 <html lang="vi">
 <head>
     <meta charset="UTF-8">
-    <meta name="viewport" content="width=device-width, initial-scale=1.0">
-    <title>Face Recognition Enterprise - Stable</title>
+    <meta name="viewport" content="width=device-width, initial-scale=1.0, maximum-scale=1.0, user-scalable=no">
+    <title>AI FaceID - Final Stable</title>
     
     <link rel="stylesheet" href="https://cdnjs.cloudflare.com/ajax/libs/font-awesome/6.4.0/css/all.min.css">
-    
-    <script src="https://cdnjs.cloudflare.com/ajax/libs/jszip/3.10.1/jszip.min.js"></script>
-    <script src="https://cdnjs.cloudflare.com/ajax/libs/FileSaver.js/2.0.5/FileSaver.min.js"></script>
     <script src="https://cdn.jsdelivr.net/npm/face-api.js@0.22.2/dist/face-api.min.js"></script>
 
     <style>
         :root {
             --bg: #0f172a;
-            --card: #1e293b;
-            --text: #f8fafc;
+            --surface: #1e293b;
             --primary: #3b82f6;
-            --success: #22c55e;
+            --success: #10b981;
             --danger: #ef4444;
             --warning: #f59e0b;
-            --info-bg: rgba(15, 23, 42, 0.95);
         }
 
-        * { margin: 0; padding: 0; box-sizing: border-box; font-family: 'Segoe UI', system-ui, sans-serif; }
-        body { background: var(--bg); color: var(--text); min-height: 100vh; padding: 20px; }
+        * { margin: 0; padding: 0; box-sizing: border-box; font-family: -apple-system, BlinkMacSystemFont, 'Segoe UI', Roboto, sans-serif; }
         
-        .container { max-width: 1200px; margin: 0 auto; }
+        body { 
+            background: var(--bg); 
+            color: white; 
+            height: 100vh; /* Full height cố định */
+            display: flex; 
+            flex-direction: column; 
+            overflow: hidden; /* Chặn scroll trang */
+        }
 
-        /* HEADER */
-        header { text-align: center; margin-bottom: 25px; border-bottom: 1px solid #334155; padding-bottom: 15px; }
-        h1 { color: var(--primary); margin-bottom: 5px; font-size: 28px; }
-        
-        /* LAYOUT */
-        .main-grid { display: grid; grid-template-columns: 1fr 350px; gap: 20px; }
-        
-        /* CARD STYLES */
-        .card { background: var(--card); border-radius: 16px; padding: 20px; box-shadow: 0 10px 15px -3px rgba(0,0,0,0.1); border: 1px solid #334155; }
-        .card-header { display: flex; justify-content: space-between; align-items: center; margin-bottom: 15px; font-weight: 600; font-size: 18px; }
+        /* --- 1. TOP HEADER --- */
+        .app-header {
+            padding: 15px;
+            background: var(--surface);
+            display: flex; justify-content: space-between; align-items: center;
+            border-bottom: 1px solid #334155;
+            flex-shrink: 0; /* Không bị co lại */
+        }
+        .brand { font-weight: 800; color: var(--primary); font-size: 18px; }
+        .status-pill {
+            font-size: 12px; padding: 4px 10px; border-radius: 20px;
+            background: #334155; color: #94a3b8; font-weight: 600;
+            transition: 0.3s;
+        }
+        .status-pill.scanning { background: var(--warning); color: #000; animation: pulse 1.5s infinite; }
+        .status-pill.locked { background: var(--success); color: white; }
 
-        /* VIDEO AREA */
-        .video-wrapper { position: relative; width: 100%; aspect-ratio: 4/3; background: #000; border-radius: 12px; overflow: hidden; border: 2px solid #475569; }
-        video { width: 100%; height: 100%; object-fit: cover; transform: scaleX(-1); }
-        canvas { position: absolute; top: 0; left: 0; }
+        @keyframes pulse { 0% { opacity: 0.7; } 50% { opacity: 1; } 100% { opacity: 0.7; } }
 
-        /* FULL INFO OVERLAY */
-        .info-card {
-            position: absolute; bottom: 20px; left: 20px; right: 20px;
-            background: var(--info-bg); border-left: 5px solid var(--success);
-            padding: 15px; border-radius: 8px; backdrop-filter: blur(5px);
-            display: none; animation: slideIn 0.3s cubic-bezier(0.16, 1, 0.3, 1);
+        /* --- 2. CAMERA AREA (AUTO FLEX CENTER) --- */
+        .camera-container {
+            flex: 1; /* Chiếm toàn bộ khoảng trống còn lại */
+            position: relative;
+            background: #000;
+            display: flex; justify-content: center; align-items: center;
+            overflow: hidden;
+        }
+
+        .video-wrapper {
+            position: relative;
+            width: 100%;
+            height: 100%; /* Full container */
+            display: flex; justify-content: center; align-items: center;
+        }
+
+        /* Video & Canvas: Fit Contain để không bị cắt hình */
+        video {
+            max-width: 100%; max-height: 100%;
+            width: auto; height: auto;
+            transform: scaleX(-1);
+            display: block;
+        }
+        canvas {
+            position: absolute;
+            top: 50%; left: 50%; /* Căn giữa tuyệt đối */
+            transform: translate(-50%, -50%) scaleX(-1); /* Offset lại để trùng video */
+        }
+
+        /* UI OVERLAYS */
+        .scan-radar {
+            position: absolute; top: 50%; left: 50%; transform: translate(-50%, -50%);
+            width: 250px; height: 250px;
+            border: 2px solid rgba(59, 130, 246, 0.3);
+            border-radius: 50%;
+            display: none; /* Hiện khi Searching */
+        }
+        .scan-radar::after {
+            content: ''; position: absolute; inset: 0; border-radius: 50%;
+            border-top: 2px solid var(--primary);
+            animation: radar-spin 2s linear infinite;
+        }
+        @keyframes radar-spin { to { transform: rotate(360deg); } }
+
+        .liveness-badge {
+            position: absolute; top: 20px; left: 50%; transform: translateX(-50%);
+            background: rgba(0,0,0,0.8); color: white;
+            padding: 8px 16px; border-radius: 30px; font-size: 13px; font-weight: 600;
+            border: 1px solid rgba(255,255,255,0.2);
+            opacity: 0; transition: 0.3s; pointer-events: none;
+        }
+        .liveness-badge.show { opacity: 1; top: 30px; }
+
+        /* --- 3. FIX: INFO PANEL (NO OVERLAP) --- */
+        .info-panel {
+            position: absolute; 
+            bottom: 20px; left: 20px; right: 20px;
+            background: rgba(15, 23, 42, 0.95);
+            backdrop-filter: blur(10px);
+            border-radius: 16px;
+            padding: 16px;
+            border-left: 6px solid var(--success);
             box-shadow: 0 10px 25px rgba(0,0,0,0.5);
+            
+            /* Animation */
+            transform: translateY(150%); /* Ẩn xuống dưới */
+            transition: transform 0.4s cubic-bezier(0.34, 1.56, 0.64, 1);
+            display: flex; flex-direction: column; gap: 8px; /* Xếp dọc các dòng */
         }
-        @keyframes slideIn { from { transform: translateY(20px); opacity: 0; } to { transform: translateY(0); opacity: 1; } }
+
+        .info-panel.show { transform: translateY(0); }
+        .info-panel.error { border-left-color: var(--danger); }
+
+        /* Typography Fix */
+        .user-name { 
+            font-size: 20px; font-weight: 800; color: white; 
+            margin-bottom: 4px; 
+            white-space: nowrap; overflow: hidden; text-overflow: ellipsis; /* Cắt chữ nếu quá dài */
+        }
         
-        .info-name { font-size: 20px; font-weight: 800; color: var(--success); margin-bottom: 8px; text-transform: uppercase; border-bottom: 1px solid #334155; padding-bottom: 5px; }
-        .info-grid { display: grid; grid-template-columns: 1fr 1fr; gap: 8px; font-size: 13px; color: #cbd5e1; }
-        .info-item b { color: #fff; margin-right: 5px; }
-
-        /* CONTROLS */
-        .controls { display: flex; gap: 10px; margin-top: 20px; justify-content: center; }
-        .btn { padding: 12px 24px; border-radius: 10px; border: none; font-weight: 600; cursor: pointer; transition: 0.2s; display: flex; align-items: center; gap: 8px; color: white; }
-        .btn:disabled { opacity: 0.5; cursor: not-allowed; }
-        .btn:active { transform: scale(0.98); }
-        .btn-primary { background: var(--primary); }
-        .btn-danger { background: var(--danger); }
-        .btn-success { background: var(--success); }
-
-        /* SIDEBAR LIST */
-        .user-list { max-height: 500px; overflow-y: auto; padding-right: 5px; }
-        .user-item { 
-            display: flex; align-items: center; gap: 10px; padding: 12px; 
-            background: rgba(255,255,255,0.03); margin-bottom: 8px; border-radius: 8px; border: 1px solid transparent; 
+        /* Row style cho từng dòng thông tin -> Tránh đè nhau */
+        .info-row {
+            display: flex; align-items: center; gap: 10px;
+            color: #cbd5e1; font-size: 14px;
+            padding: 4px 0;
+            border-bottom: 1px solid rgba(255,255,255,0.05);
         }
-        .user-avatar { width: 40px; height: 40px; background: var(--primary); border-radius: 50%; display: flex; align-items: center; justify-content: center; font-weight: bold; }
-        .user-details { flex: 1; }
-        .user-details h4 { font-size: 14px; margin-bottom: 2px; }
-        .user-details p { font-size: 11px; color: #94a3b8; }
+        .info-row:last-child { border-bottom: none; }
+        .info-row i { width: 20px; text-align: center; color: var(--primary); }
 
-        /* LOADING */
-        .loader { position: fixed; inset: 0; background: rgba(0,0,0,0.95); z-index: 9999; display: flex; flex-direction: column; align-items: center; justify-content: center; }
-        .spinner { width: 50px; height: 50px; border: 5px solid #1e293b; border-top-color: var(--primary); border-radius: 50%; animation: spin 1s infinite linear; }
-        @keyframes spin { to { transform: rotate(360deg); } }
+        /* --- 4. BOTTOM CONTROLS --- */
+        .controls {
+            padding: 15px; background: var(--surface);
+            flex-shrink: 0;
+            display: flex; flex-direction: column; gap: 10px;
+        }
+        
+        .main-btns { display: grid; grid-template-columns: 1fr 1fr; gap: 10px; }
+        .btn {
+            border: none; padding: 14px; border-radius: 12px;
+            font-weight: 700; color: white; cursor: pointer;
+            display: flex; align-items: center; justify-content: center; gap: 8px;
+        }
+        .btn:active { transform: scale(0.98); }
+        .btn:disabled { opacity: 0.5; cursor: not-allowed; }
+        .btn-start { background: var(--primary); }
+        .btn-stop { background: var(--danger); }
 
-        /* RESPONSIVE */
-        @media (max-width: 900px) { .main-grid { grid-template-columns: 1fr; } .video-wrapper { aspect-ratio: 3/4; } }
+        .settings-bar { display: flex; justify-content: space-between; align-items: center; color: #94a3b8; font-size: 13px; }
+        
+        /* Loader */
+        .loader { position: fixed; inset: 0; background: var(--bg); z-index: 9999; display: flex; flex-direction: column; align-items: center; justify-content: center; }
+        .spinner { width: 40px; height: 40px; border: 4px solid #334155; border-top-color: var(--primary); border-radius: 50%; animation: spin 1s infinite linear; }
+        @keyframes spin { to {transform: rotate(360deg);} }
     </style>
 </head>
 <body>
 
     <div class="loader" id="loader">
         <div class="spinner"></div>
-        <h3 style="margin-top: 20px; color: var(--primary);">Đang khởi động hệ thống...</h3>
-        <p id="loaderText" style="color: #94a3b8; font-size: 13px;">Đang tải mô hình SSD MobileNet (Chính xác cao)</p>
+        <p style="margin-top: 15px; color: #94a3b8;">Đang tải Model AI...</p>
     </div>
 
-    <div class="container">
-        <header>
-            <h1><i class="fas fa-id-card-clip"></i> Hệ Thống Điểm Danh AI</h1>
-            <p style="color: #94a3b8;">Nhận diện khuôn mặt & Hiển thị thông tin chi tiết</p>
-        </header>
+    <div class="app-header">
+        <div class="brand"><i class="fas fa-scan"></i> FaceID Pro</div>
+        <div class="status-pill" id="systemStatus">Sẵn sàng</div>
+    </div>
 
-        <div class="main-grid">
-            <div class="card">
-                <div class="card-header">
-                    <span><i class="fas fa-video"></i> Camera Giám Sát</span>
-                    <span id="camStatus" style="font-size: 13px; color: var(--warning);">● Đang chờ</span>
-                </div>
+    <div class="camera-container">
+        <div class="video-wrapper">
+            <video id="video" autoplay muted playsinline></video>
+            <canvas id="overlay"></canvas>
+            
+            <div class="scan-radar" id="radar"></div>
 
-                <div class="video-wrapper">
-                    <video id="video" autoplay muted playsinline></video>
-                    <canvas id="overlay"></canvas>
-
-                    <div class="info-card" id="infoCard">
-                        <div class="info-name" id="dispName">---</div>
-                        <div class="info-grid">
-                            <div class="info-item"><b>ID:</b> <span id="dispID">---</span></div>
-                            <div class="info-item"><b>Giới tính:</b> <span id="dispGender">---</span></div>
-                            <div class="info-item"><b>Lớp/ĐV:</b> <span id="dispClass">---</span></div>
-                            <div class="info-item"><b>Dân tộc:</b> <span id="dispEthnicity">---</span></div>
-                            <div class="info-item" style="grid-column: span 2; border-top: 1px solid #334155; margin-top: 5px; padding-top: 5px;">
-                                <b>Trạng thái:</b> <span id="dispEmotion" style="color: #fbbf24">---</span>
-                            </div>
-                        </div>
-                    </div>
-                </div>
-
-                <div class="controls">
-                    <button class="btn btn-primary" id="startBtn" disabled onclick="startRecognition()">
-                        <i class="fas fa-play"></i> Bắt đầu
-                    </button>
-                    <button class="btn btn-danger" id="stopBtn" disabled onclick="stopRecognition()">
-                        <i class="fas fa-stop"></i> Dừng
-                    </button>
-                </div>
+            <div class="liveness-badge" id="livenessBadge">
+                <i class="far fa-eye"></i> Vui lòng chớp mắt
             </div>
 
-            <div class="card">
-                <div class="card-header">
-                    <span><i class="fas fa-database"></i> Dữ liệu (<span id="dbCount">0</span>)</span>
-                    <button class="btn btn-danger" style="padding: 5px 10px; font-size: 12px;" onclick="clearDB()">
-                        <i class="fas fa-trash"></i> Xóa
-                    </button>
+            <div class="info-panel" id="infoPanel">
                 </div>
+        </div>
+    </div>
 
-                <div style="margin-bottom: 15px;">
-                    <button class="btn btn-success" style="width: 100%; justify-content: center;" onclick="document.getElementById('fileInput').click()">
-                        <i class="fas fa-file-import"></i> Nhập Dữ Liệu (JSON)
-                    </button>
-                    <input type="file" id="fileInput" style="display: none;" accept=".json" onchange="importData(this)">
-                </div>
-
-                <div class="user-list" id="userList">
-                    <div style="text-align: center; color: #64748b; padding: 20px;">
-                        Chưa có dữ liệu.<br>Vui lòng nhập file JSON.
-                    </div>
-                </div>
-            </div>
+    <div class="controls">
+        <div class="main-btns">
+            <button class="btn btn-start" id="startBtn" disabled onclick="toggleSystem(true)">
+                <i class="fas fa-play"></i> Bắt đầu
+            </button>
+            <button class="btn btn-stop" id="stopBtn" disabled onclick="toggleSystem(false)">
+                <i class="fas fa-stop"></i> Dừng
+            </button>
+        </div>
+        
+        <div class="settings-bar">
+            <label style="display: flex; align-items: center; gap: 5px;">
+                <input type="checkbox" id="livenessCheck" checked> Chống giả mạo
+            </label>
+            <button onclick="document.getElementById('fileInput').click()" style="background:none; border:none; color: var(--primary); cursor: pointer;">
+                <i class="fas fa-file-import"></i> Nhập Data (<span id="dbCount">0</span>)
+            </button>
+            <input type="file" id="fileInput" hidden accept=".json" onchange="importData(this)">
         </div>
     </div>
 
     <script>
-        // --- CẤU HÌNH HỆ THỐNG ---
         const CONFIG = {
-            // Sử dụng CDN ổn định
             MODEL_URL: 'https://cdn.jsdelivr.net/gh/cgarciagl/face-api.js@0.22.2/weights',
-            MIN_CONFIDENCE: 0.5, // Ngưỡng nhận diện mặt (SSD Mobilenet cần khoảng 0.5)
-            MATCH_THRESHOLD: 0.5 // Ngưỡng so khớp vector (0.5 là rất khắt khe, 0.6 là trung bình)
+            DETECTOR: new faceapi.TinyFaceDetectorOptions({ inputSize: 320, scoreThreshold: 0.5 }),
+            MATCH_THRESHOLD: 0.5,
+            BLINK_THRESHOLD: 0.28
         };
 
-        // --- STATE ---
         let state = {
-            db: null,
-            faceMatcher: null,
-            isRecognizing: false,
-            localUsers: [] // Cache danh sách user để hiển thị nhanh
+            db: null, faceMatcher: null, users: [],
+            isRunning: false, loopId: null, blinkDetected: false,
+            noFaceTimer: null
         };
 
-        // --- DOM ELEMENTS ---
-        const el = (id) => document.getElementById(id);
+        const video = document.getElementById('video');
+        const canvas = document.getElementById('overlay');
+        const infoPanel = document.getElementById('infoPanel');
+        const statusBadge = document.getElementById('systemStatus');
+        const radar = document.getElementById('radar');
+        const livenessBadge = document.getElementById('livenessBadge');
 
-        // --- 1. KHỞI TẠO INDEXEDDB ---
-        function initDB() {
-            return new Promise((resolve, reject) => {
-                const req = indexedDB.open('FaceID_Enterprise_DB', 1);
-                
-                req.onupgradeneeded = (e) => {
+        // --- DATABASE ---
+        async function initDB() {
+            return new Promise(resolve => {
+                const req = indexedDB.open('FaceID_Final_Fix', 1);
+                req.onupgradeneeded = e => {
                     const db = e.target.result;
-                    if (!db.objectStoreNames.contains('profiles')) {
-                        db.createObjectStore('profiles', { keyPath: 'name' });
-                    }
+                    if(!db.objectStoreNames.contains('profiles')) db.createObjectStore('profiles', { keyPath: 'name' });
                 };
-
-                req.onsuccess = (e) => {
+                req.onsuccess = e => {
                     state.db = e.target.result;
-                    loadUsersFromDB();
+                    loadUsers();
                     resolve();
                 };
-                req.onerror = (e) => reject("DB Error");
             });
         }
 
-        // --- 2. XỬ LÝ NHẬP DỮ LIỆU (IMPORT JSON) ---
-        async function importData(input) {
+        function loadUsers() {
+            state.db.transaction('profiles', 'readonly').objectStore('profiles').getAll().onsuccess = e => {
+                state.users = e.target.result;
+                document.getElementById('dbCount').innerText = state.users.length;
+                if(state.users.length) {
+                    const labeled = state.users.map(u => new faceapi.LabeledFaceDescriptors(u.name, u.descriptors.map(d => new Float32Array(d))));
+                    state.faceMatcher = new faceapi.FaceMatcher(labeled, CONFIG.MATCH_THRESHOLD);
+                }
+            };
+        }
+
+        function importData(input) {
             const file = input.files[0];
-            if (!file) return;
-
-            el('loader').style.display = 'flex';
-            el('loaderText').innerText = "Đang xử lý và nhập dữ liệu...";
-
+            if(!file) return;
             const reader = new FileReader();
-            reader.onload = async (e) => {
+            reader.onload = e => {
                 try {
                     const data = JSON.parse(e.target.result);
-                    
-                    // Kiểm tra cấu trúc file từ Face Data Pro
-                    if (data.user_profile && data.records) {
-                        const info = data.user_profile; // {id, name, gender, class, ethnicity}
-                        
-                        // Gom tất cả vector descriptors từ các ảnh
-                        const descriptors = [];
-                        data.records.forEach(rec => {
-                            if (rec.descriptor) {
-                                // Convert lại thành Float32Array (bắt buộc cho face-api)
-                                const floatArr = new Float32Array(Object.values(rec.descriptor));
-                                descriptors.push(floatArr);
-                            }
-                        });
-
-                        if (descriptors.length > 0) {
-                            // Tạo object lưu trữ đầy đủ
-                            const userRecord = {
-                                name: info.name, // Key chính để match
-                                id: info.id,
-                                gender: info.gender,
-                                class: info.class,
-                                ethnicity: info.ethnicity,
-                                descriptors: descriptors, // Mảng các vector
-                                timestamp: Date.now()
-                            };
-
-                            await saveToDB(userRecord);
-                            alert(`✅ Đã nhập thành công: ${info.name}`);
-                        } else {
-                            alert("❌ File không chứa vector khuôn mặt hợp lệ.");
-                        }
-                    } else {
-                        alert("❌ Cấu trúc JSON không đúng chuẩn Face Data Pro Enterprise!");
+                    const des = data.records.filter(r => r.descriptor).map(r => new Float32Array(Object.values(r.descriptor)));
+                    if(des.length) {
+                        state.db.transaction('profiles', 'readwrite').objectStore('profiles').put({...data.user_profile, descriptors: des});
+                        alert("✅ Nhập dữ liệu thành công!");
+                        loadUsers();
                     }
-
-                    input.value = ''; // Reset input
-                    await loadUsersFromDB(); // Reload list
-
-                } catch (err) {
-                    console.error(err);
-                    alert("Lỗi đọc file: " + err.message);
-                } finally {
-                    el('loader').style.display = 'none';
-                }
+                } catch(err) { alert("Lỗi file JSON"); }
             };
             reader.readAsText(file);
         }
 
-        function saveToDB(user) {
-            return new Promise((resolve, reject) => {
-                const tx = state.db.transaction('profiles', 'readwrite');
-                tx.objectStore('profiles').put(user);
-                tx.oncomplete = resolve;
-                tx.onerror = reject;
-            });
-        }
+        // --- INIT AI ---
+        async function init() {
+            await initDB();
+            await Promise.all([
+                faceapi.nets.tinyFaceDetector.loadFromUri(CONFIG.MODEL_URL),
+                faceapi.nets.faceLandmark68TinyNet.loadFromUri(CONFIG.MODEL_URL),
+                faceapi.nets.faceRecognitionNet.loadFromUri(CONFIG.MODEL_URL)
+            ]);
 
-        async function clearDB() {
-            if(!confirm("Xóa toàn bộ dữ liệu?")) return;
-            const tx = state.db.transaction('profiles', 'readwrite');
-            await tx.objectStore('profiles').clear();
-            await loadUsersFromDB();
-        }
-
-        // --- 3. LOAD DATA & TẠO MATCHER ---
-        async function loadUsersFromDB() {
-            return new Promise((resolve) => {
-                const tx = state.db.transaction('profiles', 'readonly');
-                const req = tx.objectStore('profiles').getAll();
-                
-                req.onsuccess = (e) => {
-                    state.localUsers = e.target.result; // Cache user list
-                    renderUserList(state.localUsers);
-                    
-                    if (state.localUsers.length > 0) {
-                        // Tạo LabeledFaceDescriptors cho FaceMatcher
-                        const labeledDescriptors = state.localUsers.map(user => {
-                            // Đảm bảo descriptor là Float32Array
-                            const cleanDescriptors = user.descriptors.map(d => new Float32Array(d));
-                            return new faceapi.LabeledFaceDescriptors(user.name, cleanDescriptors);
-                        });
-                        
-                        state.faceMatcher = new faceapi.FaceMatcher(labeledDescriptors, CONFIG.MATCH_THRESHOLD);
-                        el('camStatus').innerText = "● Sẵn sàng (Data Loaded)";
-                        el('camStatus').style.color = "var(--success)";
-                    } else {
-                        state.faceMatcher = null;
-                        el('camStatus').innerText = "● Chưa có dữ liệu";
-                        el('camStatus').style.color = "var(--warning)";
-                    }
-                    resolve();
-                };
-            });
-        }
-
-        function renderUserList(users) {
-            el('dbCount').innerText = users.length;
-            const list = el('userList');
-            list.innerHTML = '';
-
-            if (users.length === 0) {
-                list.innerHTML = '<div style="text-align: center; color: #64748b; padding: 20px;">Chưa có dữ liệu</div>';
-                return;
-            }
-
-            users.forEach(u => {
-                const div = document.createElement('div');
-                div.className = 'user-item';
-                const initials = u.name.split(' ').map(n => n[0]).join('').substring(0,2).toUpperCase();
-                
-                div.innerHTML = `
-                    <div class="user-avatar">${initials}</div>
-                    <div class="user-details">
-                        <h4>${u.name}</h4>
-                        <p>${u.id} | ${u.class}</p>
-                    </div>
-                    <i class="fas fa-check-circle" style="color: var(--success)"></i>
-                `;
-                list.appendChild(div);
-            });
-        }
-
-        // --- 4. HỆ THỐNG AI (KHỞI ĐỘNG) ---
-        async function initSystem() {
             try {
-                await initDB();
-
-                // Load Models (Sử dụng CONFIG.MODEL_URL)
-                await Promise.all([
-                    faceapi.nets.ssdMobilenetv1.loadFromUri(CONFIG.MODEL_URL), // Model chính xác cao
-                    faceapi.nets.faceLandmark68Net.loadFromUri(CONFIG.MODEL_URL),
-                    faceapi.nets.faceRecognitionNet.loadFromUri(CONFIG.MODEL_URL),
-                    faceapi.nets.faceExpressionNet.loadFromUri(CONFIG.MODEL_URL)
-                ]);
-
-                // Bật Camera
                 const stream = await navigator.mediaDevices.getUserMedia({ 
-                    video: { width: 640, height: 480, facingMode: 'user' } 
+                    video: { facingMode: 'user', width: { ideal: 640 }, height: { ideal: 480 } } 
                 });
-                el('video').srcObject = stream;
+                video.srcObject = stream;
+                video.onloadedmetadata = () => {
+                    document.getElementById('loader').style.display = 'none';
+                    document.getElementById('startBtn').disabled = false;
+                };
+            } catch (err) { alert("Lỗi Camera: " + err.message); }
+        }
 
-                el('loader').style.display = 'none';
-                el('startBtn').disabled = false;
-
-            } catch (e) {
-                alert("Lỗi khởi động: " + e.message + "\nKiểm tra lại kết nối mạng hoặc Camera.");
-                console.error(e);
+        // --- SYSTEM CONTROL ---
+        function toggleSystem(active) {
+            state.isRunning = active;
+            document.getElementById('startBtn').disabled = active;
+            document.getElementById('stopBtn').disabled = !active;
+            
+            if(active) {
+                radar.style.display = 'block';
+                statusBadge.innerText = "Đang quét...";
+                statusBadge.className = "status-pill scanning";
+                runLoop();
+            } else {
+                cancelAnimationFrame(state.loopId);
+                canvas.getContext('2d').clearRect(0,0,canvas.width,canvas.height);
+                resetToIdle();
             }
         }
 
-        // --- 5. VÒNG LẶP NHẬN DIỆN (MAIN LOOP) ---
-        function startRecognition() {
-            if (!state.faceMatcher) {
-                alert("Vui lòng nhập dữ liệu JSON trước!");
+        // --- LOGIC DETECT ---
+        function getEAR(eye) {
+            const d1 = Math.hypot(eye[1].x - eye[5].x, eye[1].y - eye[5].y);
+            const d2 = Math.hypot(eye[2].x - eye[4].x, eye[2].y - eye[4].y);
+            const d3 = Math.hypot(eye[0].x - eye[3].x, eye[0].y - eye[3].y);
+            return (d1 + d2) / (2 * d3);
+        }
+
+        async function runLoop() {
+            if(!state.isRunning) return;
+
+            if(video.videoWidth === 0) {
+                state.loopId = requestAnimationFrame(runLoop);
                 return;
             }
-            state.isRecognizing = true;
-            el('startBtn').disabled = true;
-            el('stopBtn').disabled = false;
-            detectLoop();
-        }
 
-        function stopRecognition() {
-            state.isRecognizing = false;
-            el('startBtn').disabled = false;
-            el('stopBtn').disabled = true;
-            el('infoCard').style.display = 'none';
-            // Clear canvas
-            const canvas = el('overlay');
-            canvas.getContext('2d').clearRect(0, 0, canvas.width, canvas.height);
-        }
-
-        async function detectLoop() {
-            const video = el('video');
-            const canvas = el('overlay');
+            // Fix kích thước hiển thị
             const displaySize = { width: video.videoWidth, height: video.videoHeight };
             faceapi.matchDimensions(canvas, displaySize);
 
-            // Cấu hình Detection (High Accuracy)
-            const options = new faceapi.SsdMobilenetv1Options({ minConfidence: CONFIG.MIN_CONFIDENCE });
+            // Detect
+            const detections = await faceapi.detectAllFaces(video, CONFIG.DETECTOR)
+                .withFaceLandmarks(true).withFaceDescriptors();
+            
+            const resized = faceapi.resizeResults(detections, displaySize);
+            const ctx = canvas.getContext('2d');
+            ctx.clearRect(0, 0, canvas.width, canvas.height);
 
-            const interval = setInterval(async () => {
-                if (!state.isRecognizing) {
-                    clearInterval(interval);
-                    return;
+            const useLiveness = document.getElementById('livenessCheck').checked;
+
+            // --- TRƯỜNG HỢP CÓ MẶT ---
+            if(resized.length > 0) {
+                // Tắt Radar
+                radar.style.display = 'none';
+                statusBadge.innerText = "Phát hiện khuôn mặt";
+                statusBadge.className = "status-pill locked";
+
+                const d = resized[0];
+                const box = d.detection.box;
+                let isReal = false;
+
+                // 1. Kiểm tra Liveness
+                if(useLiveness) {
+                    const ear = (getEAR(d.landmarks.getLeftEye()) + getEAR(d.landmarks.getRightEye()))/2;
+                    if(ear < CONFIG.BLINK_THRESHOLD) state.blinkDetected = true;
+
+                    if(state.blinkDetected) {
+                        isReal = true;
+                        showLivenessBadge(true);
+                    } else {
+                        showLivenessBadge(false);
+                    }
+                } else {
+                    isReal = true;
+                    livenessBadge.classList.remove('show');
                 }
 
-                // 1. Detect
-                const detections = await faceapi.detectAllFaces(video, options)
-                    .withFaceLandmarks()
-                    .withFaceExpressions()
-                    .withFaceDescriptors();
+                // 2. Vẽ khung
+                new faceapi.draw.DrawBox(box, {
+                    label: " ", boxColor: isReal ? '#10b981' : '#f59e0b', lineWidth: 2
+                }).draw(canvas);
 
-                // 2. Resize & Draw
-                const resizedDetections = faceapi.resizeResults(detections, displaySize);
-                const ctx = canvas.getContext('2d');
-                ctx.clearRect(0, 0, canvas.width, canvas.height);
+                // 3. Nhận diện (Chỉ khi Real)
+                if(isReal && state.faceMatcher) {
+                    const match = state.faceMatcher.findBestMatch(d.descriptor);
+                    showInfoResult(match.label);
+                }
 
-                let faceFound = false;
+            } 
+            // --- TRƯỜNG HỢP KHÔNG CÓ MẶT (FIX THEO YÊU CẦU) ---
+            else {
+                // Bật lại Radar
+                radar.style.display = 'block';
+                statusBadge.innerText = "Đang tìm kiếm...";
+                statusBadge.className = "status-pill scanning";
+                
+                // Ẩn bảng thông tin
+                infoPanel.classList.remove('show');
+                livenessBadge.classList.remove('show');
+                
+                // Reset trạng thái
+                state.blinkDetected = false;
+            }
 
-                resizedDetections.forEach(detection => {
-                    const box = detection.detection.box;
-                    
-                    // Lọc nhiễu kích thước nhỏ (ví dụ mặt người ở xa quá hoặc nhiễu ảnh)
-                    if (box.width < 50) return; 
-
-                    faceFound = true;
-
-                    // 3. Match
-                    const bestMatch = state.faceMatcher.findBestMatch(detection.descriptor);
-                    const label = bestMatch.toString();
-                    
-                    // Logic Cảm xúc
-                    const expressions = detection.expressions;
-                    const emotion = Object.keys(expressions).reduce((a, b) => expressions[a] > expressions[b] ? a : b);
-
-                    // 4. Draw Box
-                    const drawBox = new faceapi.draw.DrawBox(box, { 
-                        label: label, 
-                        boxColor: bestMatch.label === 'unknown' ? '#ef4444' : '#22c55e',
-                        lineWidth: 2
-                    });
-                    drawBox.draw(canvas);
-
-                    // 5. Hiển thị thông tin chi tiết (Nếu nhận ra người)
-                    if (bestMatch.label !== 'unknown') {
-                        showFullInfo(bestMatch.label, emotion);
-                    } else {
-                        // Nếu unknown thì ẩn info card
-                        el('infoCard').style.display = 'none';
-                    }
-                });
-
-                if (!faceFound) el('infoCard').style.display = 'none';
-
-            }, 100); // 10 FPS
+            state.loopId = requestAnimationFrame(runLoop);
         }
 
-        // --- 6. HIỂN THỊ THÔNG TIN CHI TIẾT ---
-        let lastSpeechTime = 0;
-
-        function showFullInfo(name, emotion) {
-            // Tìm thông tin user trong mảng đã cache
-            const user = state.localUsers.find(u => u.name === name);
-            if (!user) return;
-
-            // Dịch cảm xúc
-            const emoMap = { neutral: 'Bình thường', happy: 'Vui vẻ', sad: 'Buồn', angry: 'Giận', fearful: 'Sợ', disgusted: 'Ghê', surprised: 'Ngạc nhiên' };
-            const emotionVN = emoMap[emotion] || emotion;
-
-            // Update UI
-            el('infoCard').style.display = 'block';
-            el('dispName').innerText = user.name;
-            el('dispID').innerText = user.id;
-            el('dispGender').innerText = user.gender;
-            el('dispClass').innerText = user.class;
-            el('dispEthnicity').innerText = user.ethnicity;
-            el('dispEmotion').innerText = emotionVN;
-
-            // Voice Announce (Throttled 5s) - Tránh nói liên tục
-            const now = Date.now();
-            if (now - lastSpeechTime > 5000) {
-                const utterance = new SpeechSynthesisUtterance(`Xin chào ${user.name}.`);
-                utterance.lang = 'vi-VN';
-                window.speechSynthesis.speak(utterance);
-                lastSpeechTime = now;
+        // --- HELPERS HIỂN THỊ ---
+        function showLivenessBadge(success) {
+            livenessBadge.classList.add('show');
+            if(success) {
+                livenessBadge.innerHTML = '<i class="fas fa-check"></i> Xác thực OK';
+                livenessBadge.style.color = 'var(--success)';
+                livenessBadge.style.borderColor = 'var(--success)';
+            } else {
+                livenessBadge.innerHTML = '<i class="far fa-eye"></i> Hãy chớp mắt';
+                livenessBadge.style.color = 'white';
+                livenessBadge.style.borderColor = 'rgba(255,255,255,0.2)';
             }
         }
 
-        // RUN
-        initSystem();
+        // FIX CSS OVERLAP: Inject HTML dạng dòng
+        function showInfoResult(label) {
+            // Nếu đang hiện rồi thì thôi, tránh render lại liên tục gây giật
+            if (infoPanel.dataset.currentUser === label && infoPanel.classList.contains('show')) return;
+            
+            infoPanel.dataset.currentUser = label;
+            infoPanel.classList.add('show');
 
+            if(label === 'unknown') {
+                infoPanel.className = 'info-panel show error';
+                infoPanel.innerHTML = `
+                    <div class="user-name">CẢNH BÁO: NGƯỜI LẠ</div>
+                    <div class="info-row">
+                        <i class="fas fa-exclamation-triangle"></i> <span>Không có dữ liệu trong hệ thống.</span>
+                    </div>
+                `;
+                speak("Cảnh báo");
+            } else {
+                const user = state.users.find(u => u.name === label);
+                if(user) {
+                    infoPanel.className = 'info-panel show';
+                    // Layout dòng dọc, đảm bảo không bao giờ đè chữ
+                    infoPanel.innerHTML = `
+                        <div class="user-name">${user.name}</div>
+                        <div class="info-row">
+                            <i class="fas fa-id-badge"></i> <span>ID: ${user.id}</span>
+                        </div>
+                        <div class="info-row">
+                            <i class="fas fa-layer-group"></i> <span>Đơn vị: ${user.class}</span>
+                        </div>
+                        <div class="info-row" style="color: var(--success); font-weight: 600;">
+                            <i class="fas fa-check-circle"></i> <span>Điểm danh thành công</span>
+                        </div>
+                    `;
+                    speak("Xin chào " + user.name);
+                }
+            }
+        }
+
+        function resetToIdle() {
+            radar.style.display = 'none';
+            statusBadge.innerText = "Sẵn sàng";
+            statusBadge.className = "status-pill";
+            infoPanel.classList.remove('show');
+            livenessBadge.classList.remove('show');
+        }
+
+        let lastSpeak = 0;
+        function speak(txt) {
+            const now = Date.now();
+            if(now - lastSpeak > 4000) {
+                window.speechSynthesis.speak(new SpeechSynthesisUtterance(txt));
+                lastSpeak = now;
+            }
+        }
+
+        init();
     </script>
 </body>
 </html>
